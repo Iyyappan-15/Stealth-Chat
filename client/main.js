@@ -41,23 +41,34 @@ joinBtn.addEventListener('click', async () => {
     initNetworking();
 });
 
+const leaveBtn = document.getElementById('leave-btn');
+leaveBtn.addEventListener('click', () => {
+    // Reloading is the cleanest way to reset P2P and key state
+    window.location.reload();
+});
+
 async function initSecurity() {
-    // 1. Generate local keys
-    await cryptoManager.generateKeyPair();
+    try {
+        // 1. Generate local keys
+        await cryptoManager.generateKeyPair();
 
-    // 2. Start Detector
-    screenshotDetector = new window.ScreenshotDetector((reason) => {
-        // When WE do something suspicious, warn us AND notify peer
-        showSystemAlert(`⚠ WARNING: You triggered security breach (${reason})`);
+        // 2. Start Detector
+        screenshotDetector = new window.ScreenshotDetector((reason) => {
+            // When WE do something suspicious, warn us AND notify peer
+            showSystemAlert(`⚠ WARNING: You triggered security breach (${reason})`);
 
-        // Send alert to peer
-        if (webrtcManager) {
-            webrtcManager.sendMessage(JSON.stringify({
-                type: 'SYSTEM_ALERT',
-                content: `Peer triggered security breach: ${reason}`
-            }));
-        }
-    });
+            // Send alert to peer
+            if (webrtcManager) {
+                webrtcManager.sendMessage(JSON.stringify({
+                    type: 'SYSTEM_ALERT',
+                    content: `Peer triggered security breach: ${reason}`
+                }));
+            }
+        });
+    } catch (e) {
+        console.error("Security Init Fail:", e);
+        showSystemAlert(`❌ SECURITY ERROR: ${e.message}. (Try using localhost instead of file://)`);
+    }
 }
 
 function initNetworking() {
