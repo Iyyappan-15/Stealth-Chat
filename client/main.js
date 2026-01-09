@@ -63,7 +63,7 @@ async function initSecurity() {
 function initNetworking() {
     // Determine WebSocket URL (localhost or network IP)
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const host = window.location.hostname;
+    const host = window.location.hostname || 'localhost';
     const port = '8080'; // Ensuring we hit the node server
     const signalingUrl = `${protocol}://${host}:${port}`;
 
@@ -88,6 +88,7 @@ async function onOpenerConnected() {
 
     // Exchange Keys
     const myPublicKey = await cryptoManager.exportPublicKey();
+    showSystemAlert("Sending my public key...");
     webrtcManager.sendMessage(JSON.stringify({
         type: 'KEY_EXCHANGE',
         key: myPublicKey
@@ -121,6 +122,7 @@ async function onMessageReceived(rawMessage) {
         }
     } catch (e) {
         console.error("Error processing message:", e);
+        showSystemAlert(`❌ Error: ${e.message}`);
     }
 }
 
