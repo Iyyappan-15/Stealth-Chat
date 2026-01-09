@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stealth Chat - Secure P2P Messaging</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts for that slick look -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <div id="login-screen" class="screen">
+        <div class="container">
+            <h1>🕵️ Stealth Chat</h1>
+            <p>End-to-End Encrypted | Serverless Data | Auto-Destruct</p>
+            <div class="input-group">
+                <input type="text" id="room-input" placeholder="Enter Secret Room ID" autocomplete="off">
+                <button id="join-btn">ENTER SECURE CHANNEL</button>
+            </div>
+            <p class="status" id="login-status"></p>
+        </div>
+    </div>
+
+    <div id="chat-screen" class="screen hidden">
+        <header>
+            <div class="header-info">
+                <span id="room-display">Room: ...</span>
+                <span id="connection-status" class="status-indicator disconnected">● Disconnected</span>
+            </div>
+            <button id="leave-btn">LEAVE</button>
+        </header>
+
+        <div id="messages-container">
+            <!-- Messages appear here -->
+        </div>
+
+        <div id="typing-indicator" class="hidden">Peer is typing...</div>
+
+        <div class="input-area">
+            <input type="text" id="message-input" placeholder="Type a secure message..." autocomplete="off">
+            <button id="send-btn">SEND ⏎</button>
+        </div>
+    </div>
+
+    <!-- Security Overlay for Screenshot Detection -->
+    <div id="security-alert" class="hidden">
+        <div class="alert-box">
+            <h2>⚠ SECURITY BREACH DETECTED ⚠</h2>
+            <p>Screenshot or Screen Capture Attempted!</p>
+            <p>The peer has been notified.</p>
+            <button id="dismiss-alert">ACKNOWLEDGE</button>
+        </div>
+    </div>
+
+    <script src="screenshotDetector.js"></script>
+    <script src="crypto.js"></script>
+    <script src="webrtc.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>

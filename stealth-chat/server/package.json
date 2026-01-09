@@ -1,0 +1,12 @@
+{
+  "name": "stealth-chat-server",
+  "version": "1.0.0",
+  "description": "Signaling server for Stealth Chat",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.13.0"
+  }
+}
