@@ -48,7 +48,7 @@ body {
     border: 1px solid #30363d;
     border-radius: 8px;
     background: #161b22;
-    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
 }
 
 h1 {
@@ -109,8 +109,13 @@ header {
     margin-left: 10px;
 }
 
-.connected { color: var(--success-color); }
-.disconnected { color: var(--danger-color); }
+.connected {
+    color: var(--success-color);
+}
+
+.disconnected {
+    color: var(--danger-color);
+}
 
 #messages-container {
     flex-grow: 1;
@@ -209,35 +214,120 @@ header {
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 @keyframes shake {
-    0% { transform: translate(1px, 1px) rotate(0deg); }
-    10% { transform: translate(-1px, -2px) rotate(-1deg); }
-    20% { transform: translate(-3px, 0px) rotate(1deg); }
-    30% { transform: translate(3px, 2px) rotate(0deg); }
-    40% { transform: translate(1px, -1px) rotate(1deg); }
-    50% { transform: translate(-1px, 2px) rotate(-1deg); }
-    60% { transform: translate(-3px, 1px) rotate(0deg); }
-    70% { transform: translate(3px, 1px) rotate(-1deg); }
-    80% { transform: translate(-1px, -1px) rotate(1deg); }
-    90% { transform: translate(1px, 2px) rotate(0deg); }
-    100% { transform: translate(1px, -2px) rotate(-1deg); }
+    0% {
+        transform: translate(1px, 1px) rotate(0deg);
+    }
+
+    10% {
+        transform: translate(-1px, -2px) rotate(-1deg);
+    }
+
+    20% {
+        transform: translate(-3px, 0px) rotate(1deg);
+    }
+
+    30% {
+        transform: translate(3px, 2px) rotate(0deg);
+    }
+
+    40% {
+        transform: translate(1px, -1px) rotate(1deg);
+    }
+
+    50% {
+        transform: translate(-1px, 2px) rotate(-1deg);
+    }
+
+    60% {
+        transform: translate(-3px, 1px) rotate(0deg);
+    }
+
+    70% {
+        transform: translate(3px, 1px) rotate(-1deg);
+    }
+
+    80% {
+        transform: translate(-1px, -1px) rotate(1deg);
+    }
+
+    90% {
+        transform: translate(1px, 2px) rotate(0deg);
+    }
+
+    100% {
+        transform: translate(1px, -2px) rotate(-1deg);
+    }
 }
 
 /* Scrollbar */
 ::-webkit-scrollbar {
     width: 8px;
 }
+
 ::-webkit-scrollbar-track {
     background: #0d1117;
 }
+
 ::-webkit-scrollbar-thumb {
     background: #30363d;
     border-radius: 4px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
     background: #8b949e;
+}
+
+@media (max-width: 768px) {
+    .container {
+        width: 95%;
+        padding: 1rem;
+    }
+
+    h1 {
+        font-size: 1.5rem;
+    }
+
+    /* Chat Screen Mobile Adjustments */
+    #chat-screen {
+        height: 100dvh;
+        /* Dynamic viewport height for mobile browsers */
+    }
+
+    header {
+        padding: 0.5rem;
+    }
+
+    #room-display {
+        font-size: 0.9rem;
+    }
+
+    .message {
+        max-width: 85%;
+        font-size: 0.9rem;
+    }
+
+    .input-area {
+        padding: 0.5rem;
+    }
+
+    input {
+        font-size: 16px;
+        /* Prevents iOS zoom on focus */
+    }
+
+    button#send-btn {
+        padding: 10px;
+    }
 }

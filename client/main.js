@@ -72,11 +72,10 @@ async function initSecurity() {
 }
 
 function initNetworking() {
-    // Determine WebSocket URL (localhost or network IP)
+    // Determine WebSocket URL relative to the page origin
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const host = window.location.hostname || 'localhost';
-    const port = '8080'; // Ensuring we hit the node server
-    const signalingUrl = `${protocol}://${host}:${port}`;
+    const host = window.location.host; // includes port if present
+    const signalingUrl = `${protocol}://${host}`;
 
     webrtcManager = new window.WebRTCManager(
         signalingUrl,

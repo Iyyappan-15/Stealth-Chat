@@ -1,11 +1,21 @@
+const express = require('express');
+const http = require('http');
 const WebSocket = require('ws');
+const path = require('path');
 
-const wss = new WebSocket.Server({ port: 8080 });
+const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
 
-console.log('Signaling Server running on port 8080');
+const PORT = process.env.PORT || 8080;
+
+// Serve static files from the client directory
+const clientPath = path.join(__dirname, '../client');
+app.use(express.static(clientPath));
+
+console.log(`Serving static files from: ${clientPath}`);
 
 // Store clients: { roomId: [client1, client2] }
-// In a real app, manage this better to handle disconnects/reconnects
 const rooms = {};
 
 wss.on('connection', (ws) => {
@@ -69,4 +79,8 @@ wss.on('connection', (ws) => {
             }
         }
     });
+});
+
+server.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
 });
