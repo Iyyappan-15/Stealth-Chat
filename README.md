@@ -44,7 +44,7 @@ The system consists of two main parts:
 *   **Concept**: If a user tries to capture proof of the conversation, the system detects it.
 *   **Method**:
     *   Listens for the `PrintScreen` key.
-    *   Detects tab switching (`visibilitychange` event).
+    *   Detects screenshot shortcuts (Win+Shift+S, Cmd+Shift+3/4).
     *   **Action**: A warning is displayed locally, and a **System Alert** is sent to the peer, warning them that their chat might be compromised.
 
 ### 💣 3. Auto-Destruct Messages
@@ -61,44 +61,225 @@ The system consists of two main parts:
 
 ---
 
-## 🏃‍♂️ Execution Guide
+## 📋 Prerequisites
 
-### Prerequisities
-*   Node.js installed on your computer.
+Before running Stealth Chat, ensure you have:
 
-### Step 1: Start the Signaling Server
-1.  Open a terminal/command prompt.
-2.  Navigate to the `stealth-chat/server` folder.
-3.  Run the server:
-    ```bash
-    npm start
-    ```
-    *You should see: "Signaling Server running on port 8080"*
-
-### Step 2: Open the Client
-Since this uses Web Crypto and WebRTC, it is best run on a local server or HTTPS. For this demo (localhost), it works fine directly.
-
-**Option A: Same Computer Setup**
-1.  Navigate to `stealth-chat/client`.
-2.  Open `index.html` in **two different browser tabs** (or one Chrome, one Edge).
-3.  In Tab 1: Enter a Room ID (e.g., "room1") and click **ENTER**.
-4.  In Tab 2: Enter the **SAME** Room ID and click **ENTER**.
-5.  Wait for the status to turn **Green (Secure Link Established)**.
-6.  Start Chatting!
-
-**Option B: Two Different Computers (Local Network)**
-1.  Find the IP address of the computer running the server (e.g., `192.168.1.5`).
-2.  In `client/main.js`, update the `host` variable from `window.location.hostname` to `'192.168.1.5'`.
-3.  Serve the `client` folder using a simple HTTP server (e.g., `npx http-server client`).
-4.  Access the client page from both computers.
+1. **Node.js** (v14 or higher) - [Download here](https://nodejs.org/)
+2. **npm** (comes with Node.js)
+3. **Modern Web Browser** (Chrome, Firefox, Edge, or Safari)
+   - Must support WebRTC and Web Crypto API
+4. **HTTPS or localhost** - Web Crypto API requires secure context
 
 ---
 
-## 🧪 How to Verify (For Examiners)
+## 🏃‍♂️ How to Run This Project
 
-1.  **Verify P2P**: Shut down the Node.js server *after* the chat is connected. You will see connection status might stay (if signaling not needed for keep-alive), but more importantly, **send a message**. It will still go through because the WebRTC pipe is direct peer-to-peer!
-2.  **Verify Encryption**: Open Browser Console (`F12`). Look at the network tab or console logs (if enabled). You will notice that "payloads" are sent as JSON objects with `iv` and `cipherText`, not plain text.
-3.  **Verify Screenshot**: Press the `PrintScreen` key on your keyboard. Watch the **other peer's screen** receive a giant red security alert.
+### Step 1: Install Dependencies
+
+Open a terminal/command prompt and navigate to the project directory:
+
+```bash
+cd server
+npm install
+```
+
+This will install all required dependencies:
+- `express` - Web server framework
+- `ws` - WebSocket library
+- `cors` - Cross-origin resource sharing
+
+### Step 2: Start the Signaling Server
+
+From the `server` directory, run:
+
+```bash
+npm start
+```
+
+Or directly:
+
+```bash
+node server.js
+```
+
+You should see:
+```
+Serving static files from: [path]/client
+Server is running on port 8080
+```
+
+**✅ Server is now running!** Keep this terminal window open.
+
+### Step 3: Open the Client Application
+
+The server automatically serves the client files. Open your web browser and navigate to:
+
+```
+http://localhost:8080
+```
+
+### Step 4: Start a Secure Chat Session
+
+**Option A: Same Computer (Two Browser Tabs)**
+
+1. Open `http://localhost:8080` in **two different browser tabs** (or use two different browsers)
+2. In **Tab 1**: Enter a Room ID (e.g., "secret123") and click **ENTER SECURE CHANNEL**
+3. In **Tab 2**: Enter the **SAME** Room ID ("secret123") and click **ENTER SECURE CHANNEL**
+4. Wait for the status to turn **Green: "● Secure Link Established"**
+5. Start chatting! Messages are end-to-end encrypted.
+
+**Option B: Two Different Computers (Same Network)**
+
+1. Find the IP address of the computer running the server:
+   - Windows: `ipconfig` (look for IPv4 Address)
+   - Mac/Linux: `ifconfig` or `ip addr`
+   
+2. On the server computer, the server should already be running on port 8080
+
+3. On **both computers**, open a browser and navigate to:
+   ```
+   http://[SERVER_IP]:8080
+   ```
+   Example: `http://192.168.1.100:8080`
+
+4. Enter the same Room ID on both computers
+5. Wait for connection and start chatting!
+
+---
+
+## 🧪 How to Verify (Testing)
+
+### 1. Verify P2P Connection
+- After establishing the chat connection, **stop the Node.js server** (Ctrl+C in the terminal)
+- Try sending a message in the chat
+- **It will still work!** This proves the connection is truly peer-to-peer
+
+### 2. Verify Encryption
+- Open Browser Console (Press `F12`)
+- Go to the **Console** tab
+- Look for log messages showing encrypted payloads with `iv` and `data` fields
+- Messages are NOT sent as plain text
+
+### 3. Verify Screenshot Detection
+- Press the `PrintScreen` key on your keyboard
+- Watch the **other peer's screen** receive a red security alert
+- Try Windows Snipping Tool (Win+Shift+S) - should also trigger
+
+### 4. Verify Auto-Destruct
+- Send a message
+- Watch the red timer count down from 10s
+- Message disappears automatically after 10 seconds
+
+---
+
+## 🔧 Troubleshooting
+
+### Server won't start
+**Error**: `Cannot find module 'express'` or similar
+- **Solution**: Run `npm install` in the `server` directory
+
+**Error**: `Port 8080 is already in use`
+- **Solution**: Change the port in `server/server.js` (line 10) or stop the process using port 8080
+
+### Client won't connect
+**Error**: "Failed to connect to signaling server"
+- **Solution**: Make sure the server is running (`npm start` in server directory)
+- Check that you're accessing `http://localhost:8080` (not `file://`)
+
+### Encryption errors
+**Error**: "SECURITY ERROR: The operation is insecure"
+- **Solution**: Web Crypto API requires HTTPS or localhost. Make sure you're using `http://localhost:8080`, not opening the HTML file directly
+
+### WebRTC connection fails
+**Problem**: Status stays "Disconnected"
+- **Solution**: 
+  - Check browser console for errors (F12)
+  - Make sure both peers entered the **exact same** Room ID
+  - Try refreshing both browser tabs
+  - Check firewall settings (may block WebRTC)
+
+### Screenshot detection too sensitive
+- The detection has been tuned to avoid false positives
+- Only triggers on actual screenshot keys, not normal tab switching
+- If needed, you can disable it by commenting out the detector in `client/main.js`
+
+---
+
+## 🌐 Browser Compatibility
+
+| Browser | Supported | Notes |
+|---------|-----------|-------|
+| Chrome  | ✅ Yes    | Recommended |
+| Firefox | ✅ Yes    | Fully supported |
+| Edge    | ✅ Yes    | Chromium-based |
+| Safari  | ✅ Yes    | macOS/iOS 11+ |
+| Opera   | ✅ Yes    | Chromium-based |
+
+**Note**: All browsers must support WebRTC and Web Crypto API (all modern browsers do).
+
+---
+
+## 🔒 Security Considerations
+
+### What is Encrypted
+✅ All chat messages (end-to-end)  
+✅ Message content never touches the server  
+✅ Encryption keys generated locally in browser  
+
+### What is NOT Encrypted
+⚠️ Room IDs (sent to signaling server)  
+⚠️ Connection metadata (IP addresses visible to STUN servers)  
+⚠️ The fact that two peers are communicating  
+
+### Important Notes
+- This is a **demonstration project** for educational purposes
+- Not audited for production security use
+- Messages auto-destruct but may remain in browser memory
+- Screenshot detection can be bypassed by external cameras
+- Use at your own risk for sensitive communications
+
+---
+
+## 📁 Project Structure
+
+```
+Stealth-Chat/
+├── server/
+│   ├── server.js          # WebSocket signaling server
+│   ├── package.json       # Server dependencies
+│   └── node_modules/      # Installed packages
+├── client/
+│   ├── index.html         # Main UI
+│   ├── style.css          # Styling
+│   ├── main.js            # Application logic
+│   ├── webrtc.js          # WebRTC connection manager
+│   ├── crypto.js          # Encryption/decryption
+│   └── screenshotDetector.js  # Security monitoring
+└── README.md              # This file
+```
+
+---
+
+## ❓ FAQ
+
+**Q: Do messages get stored anywhere?**  
+A: No. Messages only exist in browser memory and auto-destruct after 10 seconds.
+
+**Q: Can the server read my messages?**  
+A: No. Messages are encrypted end-to-end. The server only helps establish the connection.
+
+**Q: What happens if I refresh the page?**  
+A: All messages are lost (by design). You'll need to reconnect.
+
+**Q: Can more than 2 people join a room?**  
+A: No. This is a P2P demo limited to 2 peers per room.
+
+**Q: Does this work over the internet?**  
+A: Yes, but you'll need to expose port 8080 or deploy the server to a public host.
+
+**Q: Is this production-ready?**  
+A: No. This is an educational demonstration. Use established solutions like Signal for real secure messaging.
 
 ---
 
@@ -106,3 +287,21 @@ Since this uses Web Crypto and WebRTC, it is best run on a local server or HTTPS
 *   Video/Audio Calling implementation.
 *   File Sharing support via DataChannel.
 *   Identity verification using Digital Signatures.
+*   Group chat support (multi-peer).
+*   Message persistence with local encryption.
+
+---
+
+## 📄 License
+
+This project is open source and available for educational purposes.
+
+---
+
+## 👨‍💻 Contributing
+
+Feel free to fork, improve, and submit pull requests!
+
+---
+
+**Made with ❤️ for privacy and security education**

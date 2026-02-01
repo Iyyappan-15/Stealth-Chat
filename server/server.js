@@ -2,12 +2,16 @@ const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
 const path = require('path');
+const cors = require('cors');
 
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 const PORT = process.env.PORT || 8080;
+
+// Enable CORS for all routes
+app.use(cors());
 
 // Serve static files from the client directory
 const clientPath = path.join(__dirname, '../client');
@@ -19,18 +23,37 @@ console.log(`Serving static files from: ${clientPath}`);
 const rooms = {};
 
 wss.on('connection', (ws) => {
+    console.log('New WebSocket connection established');
+
+    // Set connection timeout
+    const connectionTimeout = setTimeout(() => {
+        if (!ws.roomId) {
+            console.log('Connection timeout - no room joined');
+            ws.close();
+        }
+    }, 30000); // 30 seconds to join a room
+
     ws.on('message', (message) => {
         let data;
         try {
             data = JSON.parse(message);
         } catch (e) {
-            console.error('Invalid JSON');
+            console.error('Invalid JSON received');
+            ws.send(JSON.stringify({ type: 'error', message: 'Invalid message format' }));
             return;
         }
 
         const { type, roomId, payload } = data;
 
+        // Validate room ID
+        if (type === 'join' && (!roomId || typeof roomId !== 'string' || roomId.trim() === '')) {
+            ws.send(JSON.stringify({ type: 'error', message: 'Invalid room ID' }));
+            return;
+        }
+
         if (type === 'join') {
+            clearTimeout(connectionTimeout);
+
             if (!rooms[roomId]) {
                 rooms[roomId] = [];
             }
@@ -48,18 +71,21 @@ wss.on('connection', (ws) => {
 
             // Notify if another peer is waiting
             if (rooms[roomId].length === 2) {
-                // Fix: Send 'ready' ONLY to the newly joined peer to avoid glare (race condition)
+                // Send 'ready' ONLY to the newly joined peer to avoid glare (race condition)
                 ws.send(JSON.stringify({ type: 'ready' }));
             }
         } else if (type === 'signal') {
             // Forward signaling data (SDP/ICE) to the OTHER peer in the room
-            if (rooms[roomId]) {
-                rooms[roomId].forEach(client => {
-                    if (client !== ws && client.readyState === WebSocket.OPEN) {
-                        client.send(JSON.stringify({ type: 'signal', payload }));
-                    }
-                });
+            if (!roomId || !rooms[roomId]) {
+                ws.send(JSON.stringify({ type: 'error', message: 'Invalid room' }));
+                return;
             }
+
+            rooms[roomId].forEach(client => {
+                if (client !== ws && client.readyState === WebSocket.OPEN) {
+                    client.send(JSON.stringify({ type: 'signal', payload }));
+                }
+            });
         }
     });
 

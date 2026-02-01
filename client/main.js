@@ -16,6 +16,8 @@ let myRoomId = null;
 let cryptoManager = new window.CryptoManager();
 let webrtcManager = null;
 let screenshotDetector = null;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 5;
 
 // Audio for alerts (Base64 for simplicity if needed, or just visual)
 
@@ -51,23 +53,45 @@ async function initSecurity() {
     try {
         // 1. Generate local keys
         await cryptoManager.generateKeyPair();
+        console.log('Cryptographic keys generated successfully');
 
         // 2. Start Detector
         screenshotDetector = new window.ScreenshotDetector((reason) => {
-            // When WE do something suspicious, warn us AND notify peer
-            showSystemAlert(`⚠ WARNING: You triggered security breach (${reason})`);
+            // When WE do something suspicious:
 
-            // Send alert to peer
-            if (webrtcManager) {
-                webrtcManager.sendMessage(JSON.stringify({
-                    type: 'SYSTEM_ALERT',
-                    content: `Peer triggered security breach: ${reason}`
-                }));
+            // 0. VISUAL BLOCK - IMMEDIATE PRIORITY
+            document.body.classList.add('content-obscured');
+
+            // 1. Wipe our own screen IMMEDIATELY
+            wipeMessages();
+
+            // 2. Warn us
+            showSystemAlert(`⚠ SECURITY BREACH: ${reason}`);
+            showSystemAlert(`⛔ ALL DATA WIPED LOCALLY`);
+
+            triggerSecurityOverlay();
+
+            // 3. Send alert AND WIPE COMMAND to peer
+            if (webrtcManager && webrtcManager.dataChannel) {
+                try {
+                    // Send Alert
+                    webrtcManager.sendMessage(JSON.stringify({
+                        type: 'SYSTEM_ALERT',
+                        content: `Peer triggered security event: ${reason}`
+                    }));
+
+                    // Send Wipe Command
+                    webrtcManager.sendMessage(JSON.stringify({
+                        type: 'WIPE_EVERYTHING'
+                    }));
+                } catch (err) {
+                    console.error('Failed to send security alert:', err);
+                }
             }
         });
     } catch (e) {
         console.error("Security Init Fail:", e);
-        showSystemAlert(`❌ SECURITY ERROR: ${e.message}. (Try using localhost instead of file://)`);
+        showSystemAlert(`❌ SECURITY ERROR: ${e.message}. Please ensure you're using HTTPS or localhost.`);
     }
 }
 
@@ -118,21 +142,37 @@ async function onMessageReceived(rawMessage) {
 
         if (payload.type === 'KEY_EXCHANGE') {
             // Received Peer's Public Key -> Derive Session Key
-            await cryptoManager.deriveSessionKey(payload.key);
-            showSystemAlert("Encryption Handshake Complete. Channel is Secure.");
+            try {
+                await cryptoManager.deriveSessionKey(payload.key);
+                showSystemAlert("✅ Encryption Handshake Complete. Channel is Secure.");
+                reconnectAttempts = 0; // Reset on successful connection
+            } catch (err) {
+                console.error('Key exchange failed:', err);
+                showSystemAlert(`❌ Key exchange failed: ${err.message}`);
+            }
         }
         else if (payload.type === 'CHAT_MSG') {
             // Decrypt Message
-            const decryptedText = await cryptoManager.decryptMessage(payload.content);
-            appendMessage(decryptedText, 'peer');
+            try {
+                const decryptedText = await cryptoManager.decryptMessage(payload.content);
+                appendMessage(decryptedText, 'peer');
+            } catch (err) {
+                console.error('Decryption failed:', err);
+                showSystemAlert(`❌ Failed to decrypt message`);
+            }
         }
         else if (payload.type === 'SYSTEM_ALERT') {
             // Security Alert from Peer
             triggerSecurityOverlay();
         }
+        else if (payload.type === 'WIPE_EVERYTHING') {
+            wipeMessages();
+            showSystemAlert("⛔ PEER SECURITY BREACH - CHAT WIPED");
+            triggerSecurityOverlay();
+        }
     } catch (e) {
         console.error("Error processing message:", e);
-        showSystemAlert(`❌ Error: ${e.message}`);
+        showSystemAlert(`❌ Message processing error: ${e.message}`);
     }
 }
 
@@ -209,6 +249,17 @@ function showSystemAlert(text) {
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
+function wipeMessages() {
+    // Nuke everything immediately
+    messagesContainer.innerHTML = '';
+
+    // Add a placeholder indicating what happened
+    const placeholder = document.createElement('div');
+    placeholder.classList.add('message-deleted-placeholder');
+    placeholder.textContent = "-- CRITICAL SECURITY EVENT: DATA PURGED --";
+    messagesContainer.appendChild(placeholder);
+}
+
 // ----------------------
 // SECURITY OVERLAY
 // ----------------------
@@ -220,4 +271,6 @@ function triggerSecurityOverlay() {
 
 dismissAlertBtn.addEventListener('click', () => {
     securityAlert.classList.add('hidden');
+    // Remove the blur when dismissed
+    document.body.classList.remove('content-obscured');
 });

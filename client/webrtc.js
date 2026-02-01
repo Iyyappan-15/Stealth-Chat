@@ -5,13 +5,16 @@ class WebRTCManager {
         this.peerConnection = null;
         this.dataChannel = null;
         this.roomId = null;
+        this.reconnectAttempts = 0;
+        this.maxReconnectAttempts = 5;
+        this.reconnectTimer = null;
 
         // Callbacks
         this.onMessageReceived = onMessageReceived;
         this.onPeerConnected = onPeerConnected;
         this.onPeerDisconnected = onPeerDisconnected;
 
-        // ICE Servers (Google STUN is free and reliable)
+        // ICE Servers
         this.config = {
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
@@ -26,13 +29,40 @@ class WebRTCManager {
 
         this.ws.onopen = () => {
             console.log('Connected to Signaling Server');
+            this.reconnectAttempts = 0; // Reset counter on success
+            if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
             this.ws.send(JSON.stringify({ type: 'join', roomId: this.roomId }));
+        };
+
+        this.ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+        };
+
+        this.ws.onclose = () => {
+            console.log('WebSocket connection closed');
+            this.handleReconnection();
         };
 
         this.ws.onmessage = async (event) => {
             const message = JSON.parse(event.data);
             this.handleSignalingMessage(message);
         };
+    }
+
+    handleReconnection() {
+        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+            this.reconnectAttempts++;
+            const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 10000); // Exponential backoff max 10s
+            console.log(`Attempting to reconnect in ${delay}ms (Attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
+
+            this.reconnectTimer = setTimeout(() => {
+                console.log("Reconnecting...");
+                this.connectToSignaling(this.roomId);
+            }, delay);
+        } else {
+            console.error("Max reconnection attempts reached. giving up.");
+            alert("Lost connection to server. Please refresh the page to try again.");
+        }
     }
 
     async handleSignalingMessage(message) {
