@@ -43,13 +43,18 @@ The system consists of two main parts:
 ### 📸 2. Screenshot & Intrusion Detection
 *   **Concept**: If a user tries to capture proof of the conversation, the system detects it.
 *   **Method**:
-    *   Listens for the `PrintScreen` key.
+    *   Listens for `PrintScreen` and `Alt + PrintScreen`.
     *   Detects screenshot shortcuts (Win+Shift+S, Cmd+Shift+3/4).
-    *   **Action**: A warning is displayed locally, and a **System Alert** is sent to the peer, warning them that their chat might be compromised.
+    *   Monitors `visibilitychange` (tab switching).
+    *   **Action**: A black-out overlay appears with the message "⚠ Screenshot or screen capture suspected". A **System Alert** is sent to the peer.
 
-### 💣 3. Auto-Destruct Messages
-*   **Concept**: Mission: Impossible style messages.
-*   **Method**: Every message rendered in the DOM has a 10-second timer attached. When it hits 0, the DOM element is removed from the page.
+### 💣 3. Auto-Destruct Messages (Configurable)
+*   **Concept**: Mission: Impossible style messages with user control.
+*   **Method**: Users can choose between 5s, 10s (default), 30s, or 1m timers. When it hits 0, the message is permanently removed from memory and the DOM.
+
+### 🔒 4. Session Lock
+*   **Concept**: Prevent unauthorized access if the user steps away.
+*   **Action**: If enabled, switching tabs or minimizing the window will trigger an immediate session wipe and logout. If disabled, it only obscures the screen for privacy.
 
 ---
 
@@ -162,14 +167,18 @@ http://localhost:8080
 - Messages are NOT sent as plain text
 
 ### 3. Verify Screenshot Detection
-- Press the `PrintScreen` key on your keyboard
-- Watch the **other peer's screen** receive a red security alert
-- Try Windows Snipping Tool (Win+Shift+S) - should also trigger
+- Press `PrintScreen` or `Alt + PrintScreen`.
+- Watch the **black security overlay** appear with the alert message.
+- Verify the **other peer** receives a security notification.
 
-### 4. Verify Auto-Destruct
-- Send a message
-- Watch the red timer count down from 10s
-- Message disappears automatically after 10 seconds
+### 4. Verify Auto-Destruct Configuration
+- Change the timer in the header (e.g., to 5s).
+- Send a message and verify it lasts only 5 seconds.
+
+### 5. Verify Session Lock
+- Toggle the **Session Lock** switch to "ON".
+- Switch browser tabs and then come back.
+- Verify the chat has been reset and you are back at the login screen.
 
 ---
 
@@ -264,7 +273,7 @@ Stealth-Chat/
 ## ❓ FAQ
 
 **Q: Do messages get stored anywhere?**  
-A: No. Messages only exist in browser memory and auto-destruct after 10 seconds.
+A: No. Messages only exist in browser memory and auto-destruct based on your timer setting. There is NO database, `localStorage`, or `sessionStorage` used for chat content.
 
 **Q: Can the server read my messages?**  
 A: No. Messages are encrypted end-to-end. The server only helps establish the connection.

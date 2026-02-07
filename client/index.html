@@ -1,22 +1,37 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stealth Chat - Secure P2P Messaging</title>
-    <link rel="stylesheet" href="style.css">
     <!-- Google Fonts for that slick look -->
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
+
+    <!-- Panic Screen Decoy -->
+    <div id="panic-screen" class="panic-screen">
+        <h1>Work Notes - Q1 Project</h1>
+        <hr>
+        <p><strong>To-do:</strong></p>
+        <ul>
+            <li>Review pull requests for core engine.</li>
+            <li>Update documentation for API endpoints.</li>
+            <li>Organize team meeting for synchronizing sprints.</li>
+        </ul>
+        <p>This is a standard note-taking app. Nothing suspicious here.</p>
+    </div>
 
     <div id="login-screen" class="screen">
         <div class="container">
-            <h1>🕵️ Stealth Chat</h1>
-            <p>End-to-End Encrypted | Serverless Data | Auto-Destruct</p>
+            <h1>🕵️ STEALTH</h1>
+            <p class="subtitle">Military-Grade | P2P | ZERO STORAGE</p>
             <div class="input-group">
-                <input type="text" id="room-input" placeholder="Enter Secret Room ID" autocomplete="off">
-                <button id="join-btn">ENTER SECURE CHANNEL</button>
+                <input type="text" id="room-input" placeholder="ACCESS KEY / ROOM ID" autocomplete="off">
+                <button id="join-btn">ESTABLISH SECURE LINK</button>
             </div>
             <p class="status" id="login-status"></p>
         </div>
@@ -25,37 +40,66 @@
     <div id="chat-screen" class="screen hidden">
         <header>
             <div class="header-info">
-                <span id="room-display">Room: ...</span>
-                <span id="connection-status" class="status-indicator disconnected">● Disconnected</span>
+                <div id="room-display">CHANNEL: ...</div>
+                <div class="status-indicator">
+                    <span id="connection-status" class="disconnected">● DISCONNECTED</span>
+                    <span id="encryption-status" class="hidden">| 🔒 AES-256 ACTIVE</span>
+                </div>
             </div>
-            <button id="leave-btn">LEAVE</button>
+
+            <div class="session-timer">
+                <span id="session-timer-display">SESSION EXPIRES: 10:00</span>
+            </div>
+
+            <div class="settings-group">
+                <div class="setting-item">
+                    <label for="timer-select">⏱ Destruct:</label>
+                    <select id="timer-select">
+                        <option value="5">5s</option>
+                        <option value="10" selected>10s</option>
+                        <option value="30">30s</option>
+                        <option value="60">1m</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <button id="decoy-btn" title="Fake Chat Decoy">🎭 DECOY</button>
+                </div>
+                <button id="leave-btn">TERMINATE</button>
+            </div>
         </header>
 
         <div id="messages-container">
             <!-- Messages appear here -->
         </div>
 
-        <div id="typing-indicator" class="hidden">Peer is typing...</div>
+        <div id="privacy-toolbar">
+            <label><input type="checkbox" id="stealth-typing" checked> Stealth Typing</label>
+            <label><input type="checkbox" id="no-metadata"> No Metadata</label>
+        </div>
+
+        <div id="typing-indicator" class="hidden">Peer is typing encrypted data...</div>
 
         <div class="input-area">
-            <input type="text" id="message-input" placeholder="Type a secure message..." autocomplete="off">
-            <button id="send-btn">SEND ⏎</button>
+            <input type="text" id="message-input" placeholder="Enter secure payload..." autocomplete="off">
+            <button id="send-btn">TRANSMIT</button>
         </div>
     </div>
 
     <!-- Security Overlay for Screenshot Detection -->
     <div id="security-alert" class="hidden">
         <div class="alert-box">
-            <h2>⚠ SECURITY BREACH DETECTED ⚠</h2>
-            <p>Screenshot or Screen Capture Attempted!</p>
-            <p>The peer has been notified.</p>
-            <button id="dismiss-alert">ACKNOWLEDGE</button>
+            <h2>⚠ PROTOCOL BREACH ⚠</h2>
+            <p>UNAUTHORIZED CAPTURE ATTEMPT DETECTED.</p>
+            <p>LOCAL DATA WIPED. PEER NOTIFIED.</p>
+            <button id="dismiss-alert">ACKNOWLEDGE & RECOVER</button>
         </div>
     </div>
 
+    <!-- Scripts -->
     <script src="screenshotDetector.js"></script>
     <script src="crypto.js"></script>
     <script src="webrtc.js"></script>
     <script src="main.js"></script>
 </body>
+
 </html>

@@ -1,14 +1,16 @@
 :root {
     --bg-color: #050505;
-    --card-bg: rgba(20, 20, 20, 0.6);
-    --glass-border: rgba(255, 255, 255, 0.08);
+    --card-bg: rgba(10, 10, 10, 0.7);
+    --glass-border: rgba(0, 229, 255, 0.15);
     --text-color: #e0e0e0;
     --accent-color: #00ff9d;
     /* Neon Green */
-    --accent-glow: 0 0 10px rgba(0, 255, 157, 0.5);
-    --secondary-color: #bd00ff;
-    /* Neon Purple */
+    --accent-glow: 0 0 15px rgba(0, 255, 157, 0.6);
+    --secondary-color: #00e5ff;
+    /* Cyan */
+    --secondary-glow: 0 0 15px rgba(0, 229, 255, 0.6);
     --danger-color: #ff2a6d;
+    --danger-glow: 0 0 15px rgba(255, 42, 109, 0.6);
     --success-color: #00ff9d;
     --font-family: 'JetBrains Mono', 'Courier New', monospace;
 }
@@ -17,13 +19,15 @@
     box-sizing: border-box;
     margin: 0;
     padding: 0;
+    cursor: crosshair;
+    /* Hacker feel */
 }
 
 body {
     background-color: var(--bg-color);
     background-image:
-        radial-gradient(circle at 15% 50%, rgba(189, 0, 255, 0.05) 0%, transparent 25%),
-        radial-gradient(circle at 85% 30%, rgba(0, 255, 157, 0.05) 0%, transparent 25%);
+        radial-gradient(circle at 15% 50%, rgba(0, 229, 255, 0.08) 0%, transparent 35%),
+        radial-gradient(circle at 85% 30%, rgba(0, 255, 157, 0.08) 0%, transparent 35%);
     color: var(--text-color);
     font-family: var(--font-family);
     height: 100vh;
@@ -31,16 +35,19 @@ body {
     flex-direction: column;
     overflow: hidden;
     position: relative;
+    user-select: none;
+    /* Privacy */
 }
 
-/* Grid Overlay Effect */
+/* Cyber Grid */
 body::before {
     content: "";
     position: absolute;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-    background-size: 100% 2px, 3px 100%;
+    inset: 0;
+    background:
+        linear-gradient(rgba(0, 229, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 229, 255, 0.03) 1px, transparent 1px);
+    background-size: 50px 50px;
     pointer-events: none;
     z-index: 0;
 }
@@ -52,6 +59,7 @@ body::before {
     flex-direction: column;
     position: relative;
     z-index: 1;
+    animation: fadeIn 0.4s ease-out;
 }
 
 .hidden {
@@ -62,126 +70,96 @@ body::before {
 #login-screen {
     justify-content: center;
     align-items: center;
-    text-align: center;
 }
 
 .container {
-    padding: 3rem;
+    padding: 4rem;
     border: 1px solid var(--glass-border);
-    border-radius: 16px;
+    border-radius: 20px;
     background: var(--card-bg);
-    backdrop-filter: blur(12px);
-    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(20px);
+    box-shadow: 0 0 50px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(0, 229, 255, 0.05);
     width: 100%;
-    max-width: 450px;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.container:hover {
-    box-shadow: 0 0 20px rgba(0, 255, 157, 0.1);
-    border-color: rgba(0, 255, 157, 0.3);
+    max-width: 500px;
+    text-align: center;
 }
 
 h1 {
-    margin-bottom: 0.5rem;
-    color: var(--accent-color);
-    text-shadow: var(--accent-glow);
-    font-size: 2.5rem;
-    letter-spacing: -1px;
+    margin-bottom: 1rem;
+    color: var(--secondary-color);
+    text-shadow: var(--secondary-glow);
+    font-size: 3rem;
+    letter-spacing: -2px;
 }
 
 .subtitle {
-    opacity: 0.7;
-    margin-bottom: 2rem;
-    font-size: 0.9rem;
+    opacity: 0.6;
+    margin-bottom: 2.5rem;
+    font-size: 0.85rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
 }
 
 .input-group {
     display: flex;
     flex-direction: column;
-    gap: 15px;
-    margin-bottom: 1.5rem;
+    gap: 20px;
+    margin-bottom: 2rem;
 }
 
 input {
-    background: rgba(0, 0, 0, 0.3);
+    background: rgba(0, 0, 0, 0.5);
     border: 1px solid var(--glass-border);
-    color: white;
-    padding: 15px;
-    border-radius: 8px;
+    color: var(--secondary-color);
+    padding: 18px;
+    border-radius: 12px;
     font-family: inherit;
-    font-size: 1rem;
-    transition: all 0.3s ease;
+    font-size: 1.1rem;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 input:focus {
     outline: none;
-    border-color: var(--accent-color);
-    box-shadow: 0 0 10px rgba(0, 255, 157, 0.2);
+    border-color: var(--secondary-color);
+    box-shadow: 0 0 20px rgba(0, 229, 255, 0.2), inset 0 0 10px rgba(0, 229, 255, 0.1);
 }
 
 button {
-    background: var(--accent-color);
+    background: var(--secondary-color);
     color: #000;
     border: none;
-    padding: 15px 25px;
-    border-radius: 8px;
+    padding: 18px 30px;
+    border-radius: 12px;
     cursor: pointer;
     font-family: inherit;
-    font-weight: bold;
+    font-weight: 800;
     font-size: 1rem;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-    overflow: hidden;
-}
-
-button::after {
-    content: '';
-    position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: rgba(255, 255, 255, 0.2);
-    transform: rotate(45deg) translate(-100%, -100%);
-    transition: transform 0.6s ease;
-}
-
-button:hover::after {
-    transform: rotate(45deg) translate(0, 0);
+    letter-spacing: 2px;
+    transition: all 0.3s ease;
+    box-shadow: var(--secondary-glow);
 }
 
 button:hover {
-    box-shadow: 0 0 15px var(--accent-color);
-    transform: translateY(-2px);
+    transform: scale(1.02) translateY(-2px);
+    box-shadow: 0 0 30px var(--secondary-color);
 }
 
-button#leave-btn {
-    background: rgba(255, 42, 109, 0.1);
-    color: var(--danger-color);
-    border: 1px solid var(--danger-color);
-    padding: 8px 16px;
-    font-size: 0.8rem;
+button:active {
+    transform: scale(0.98);
 }
 
-button#leave-btn:hover {
-    background: var(--danger-color);
-    color: white;
-    box-shadow: 0 0 10px var(--danger-color);
-}
-
-/* Chat Screen */
+/* Header */
 header {
-    padding: 1.5rem;
-    background: rgba(10, 10, 10, 0.8);
-    backdrop-filter: blur(10px);
+    padding: 1rem 2rem;
+    background: rgba(5, 5, 5, 0.85);
+    backdrop-filter: blur(15px);
     border-bottom: 1px solid var(--glass-border);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    z-index: 10;
+    z-index: 100;
 }
 
 .header-info {
@@ -190,214 +168,241 @@ header {
 }
 
 #room-display {
-    font-weight: bold;
-    color: white;
-    letter-spacing: 1px;
+    color: var(--secondary-color);
+    font-weight: 700;
+    font-size: 1.1rem;
 }
 
 .status-indicator {
-    font-size: 0.75rem;
-    margin-top: 5px;
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 8px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 4px;
 }
 
 .connected {
-    color: var(--success-color);
-    text-shadow: 0 0 5px var(--success-color);
+    color: var(--accent-color);
+    text-shadow: var(--accent-glow);
+    animation: pulseGreen 2s infinite;
 }
 
 .disconnected {
     color: var(--danger-color);
+    text-shadow: var(--danger-glow);
 }
 
+.session-expiry {
+    font-size: 0.7rem;
+    color: var(--danger-color);
+    opacity: 0.8;
+    margin-left: 15px;
+}
+
+/* Chat Container */
 #messages-container {
     flex-grow: 1;
     overflow-y: auto;
     padding: 2rem;
     display: flex;
     flex-direction: column;
-    gap: 15px;
-    scroll-behavior: smooth;
+    gap: 20px;
 }
 
 .message {
-    max-width: 70%;
-    padding: 12px 18px;
-    border-radius: 12px;
+    max-width: 65%;
+    padding: 14px 20px;
+    border-radius: 16px;
     position: relative;
-    animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    backdrop-filter: blur(5px);
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(8px);
+    transition: all 0.3s ease;
 }
 
 .message.me {
     align-self: flex-end;
-    background: linear-gradient(135deg, rgba(0, 255, 157, 0.1), rgba(0, 255, 157, 0.05));
+    background: rgba(0, 255, 157, 0.05);
     border: 1px solid rgba(0, 255, 157, 0.2);
-    color: #fff;
-    border-bottom-right-radius: 2px;
+    border-bottom-right-radius: 4px;
+    color: var(--accent-color);
+    animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .message.peer {
     align-self: flex-start;
-    background: linear-gradient(135deg, rgba(189, 0, 255, 0.1), rgba(189, 0, 255, 0.05));
-    border: 1px solid rgba(189, 0, 255, 0.2);
-    color: #fff;
-    border-bottom-left-radius: 2px;
-}
-
-.message .timestamp {
-    display: block;
-    font-size: 0.6rem;
-    opacity: 0.5;
-    margin-top: 5px;
-    text-align: right;
-    font-family: sans-serif;
-}
-
-.message-deleted-placeholder {
-    font-style: italic;
-    opacity: 0.5;
-    font-size: 0.8rem;
-    color: var(--danger-color);
+    background: rgba(0, 229, 255, 0.05);
+    border: 1px solid rgba(0, 229, 255, 0.2);
+    border-bottom-left-radius: 4px;
+    color: var(--secondary-color);
+    animation: slideInLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .message.system {
     align-self: center;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--glass-border);
-    color: #aaa;
-    font-size: 0.8rem;
-    padding: 5px 15px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 0.7rem;
+    padding: 6px 16px;
     border-radius: 20px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
-/* Auto-Destruct Timer */
 .destruct-timer {
     position: absolute;
-    top: -8px;
-    right: -8px;
-    background: var(--danger-color);
-    color: white;
+    bottom: -10px;
+    right: 10px;
     font-size: 0.6rem;
+    background: var(--danger-color);
+    color: black;
     padding: 2px 6px;
-    border-radius: 10px;
-    box-shadow: 0 0 5px var(--danger-color);
+    border-radius: 8px;
     font-weight: bold;
+    box-shadow: var(--danger-glow);
 }
 
+/* Input Area */
 .input-area {
-    padding: 1.5rem;
-    background: rgba(10, 10, 10, 0.8);
-    backdrop-filter: blur(10px);
+    padding: 2rem;
+    background: rgba(5, 5, 5, 0.85);
+    backdrop-filter: blur(15px);
     border-top: 1px solid var(--glass-border);
     display: flex;
     gap: 15px;
-    z-index: 10;
-}
-
-#send-btn {
-    padding: 0 25px;
-}
-
-/* Security Alert Overlay */
-#security-alert {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(255, 42, 109, 0.1);
-    display: flex;
-    justify-content: center;
     align-items: center;
-    z-index: 9999;
-    backdrop-filter: blur(10px);
-    animation: pulseRed 2s infinite;
 }
 
-.alert-box {
-    background: #000;
-    border: 2px solid var(--danger-color);
-    padding: 3rem;
-    border-radius: 16px;
-    text-align: center;
-    box-shadow: 0 0 80px var(--danger-color);
-    max-width: 500px;
-    position: relative;
-    overflow: hidden;
+#message-input {
+    flex-grow: 1;
 }
 
-/* Animated warning striples */
-.alert-box::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 5px;
-    background: repeating-linear-gradient(45deg,
-            var(--danger-color),
-            var(--danger-color) 10px,
-            #000 10px,
-            #000 20px);
+#privacy-toolbar {
+    padding: 0.5rem 2rem;
+    display: flex;
+    gap: 20px;
+    font-size: 0.7rem;
+    color: #666;
+    background: rgba(0, 0, 0, 0.3);
 }
 
-.alert-box h2 {
-    color: var(--danger-color);
-    margin-bottom: 1rem;
-    font-size: 1.8rem;
-    text-transform: uppercase;
-    letter-spacing: 2px;
+#privacy-toolbar label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
 }
 
-.alert-box p {
-    margin-bottom: 2rem;
-    font-size: 1.1rem;
+#privacy-toolbar input {
+    width: 12px;
+    height: 12px;
 }
 
-.alert-box button {
-    background: transparent;
-    border: 1px solid var(--danger-color);
-    color: var(--danger-color);
+#decoy-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    color: #888;
+    padding: 8px 12px;
+    font-size: 0.7rem;
+    box-shadow: none;
 }
 
-.alert-box button:hover {
-    background: var(--danger-color);
-    color: white;
+#decoy-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
 }
 
-@keyframes slideIn {
+/* Indicators */
+#typing-indicator {
+    font-size: 0.7rem;
+    color: var(--secondary-color);
+    padding: 0 3rem 1rem;
+    font-style: italic;
+    animation: blink 1.5s infinite;
+}
+
+/* Panic Screen Style */
+.panic-screen {
+    position: fixed;
+    inset: 0;
+    background: #fff;
+    color: #000;
+    z-index: 10000;
+    padding: 2rem;
+    font-family: sans-serif;
+    display: none;
+}
+
+.panic-screen.active {
+    display: block;
+}
+
+/* Animations */
+@keyframes fadeIn {
     from {
         opacity: 0;
-        transform: translateY(20px);
     }
 
     to {
         opacity: 1;
-        transform: translateY(0);
     }
 }
 
-@keyframes pulseRed {
-    0% {
-        background: rgba(255, 42, 109, 0.05);
+@keyframes slideInRight {
+    from {
+        transform: translateX(20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideInLeft {
+    from {
+        transform: translateX(-20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes blink {
+
+    0%,
+    100% {
+        opacity: 0.4;
     }
 
     50% {
-        background: rgba(255, 42, 109, 0.2);
-    }
-
-    100% {
-        background: rgba(255, 42, 109, 0.05);
+        opacity: 0.8;
     }
 }
 
-/* Scrollbar */
+@keyframes pulseGreen {
+    0% {
+        text-shadow: 0 0 5px var(--accent-color);
+    }
+
+    50% {
+        text-shadow: 0 0 20px var(--accent-color);
+    }
+
+    100% {
+        text-shadow: 0 0 5px var(--accent-color);
+    }
+}
+
+/* Scrollbar Style */
 ::-webkit-scrollbar {
-    width: 6px;
+    width: 4px;
 }
 
 ::-webkit-scrollbar-track {
@@ -405,80 +410,70 @@ header {
 }
 
 ::-webkit-scrollbar-thumb {
-    background: #333;
-    border-radius: 3px;
+    background: var(--glass-border);
+    border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: #555;
+    background: var(--secondary-color);
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-    .container {
-        width: 90%;
-        padding: 1.5rem;
-    }
-
-    h1 {
-        font-size: 1.8rem;
-    }
-
-    .message {
-        max-width: 85%;
-    }
-}
-
-/* SECURITY BLOCKING UTILITIES */
-body.content-obscured {
-    background: #000 !important;
-    overflow: hidden !important;
-}
-
-/* Hide the content wrappers when body is obscured */
-body.content-obscured .screen {
-    display: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-}
-
-/* Make absolutely sure the alert is visible */
-body.content-obscured #security-alert {
-    display: flex !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    background: transparent !important;
-    /* Let body black show through, or keep black */
-    pointer-events: auto !important;
-}
-
-/* Ensure the alert is ALWAYS on top and opaque */
+/* Security Overlay Redesign */
 #security-alert {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: #000 !important;
-    /* Force black background to hide everything */
-    display: flex;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 2147483647;
+    display: none;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
-    z-index: 2147483647 !important;
-    /* Max z-index */
-    backdrop-filter: none;
-    /* No need for blur if background is opaque */
-    animation: none;
-    /* Remove pulse to keep it solid black/red */
+    backdrop-filter: blur(40px);
 }
 
-#security-alert.hidden {
-    display: none !important;
+#security-alert:not(.hidden) {
+    display: flex;
 }
 
 .alert-box {
-    background: #111;
-    border: 2px solid var(--danger-color);
-    box-shadow: 0 0 50px var(--danger-color);
-    z-index: 2147483648;
+    border: 1px solid var(--danger-color);
+    background: rgba(20, 0, 0, 0.8);
+    padding: 4rem;
+    border-radius: 20px;
+    text-align: center;
+    box-shadow: 0 0 100px var(--danger-color);
+    max-width: 600px;
+}
+
+.alert-box h2 {
+    color: var(--danger-color);
+    text-shadow: var(--danger-glow);
+    font-size: 2rem;
+    margin-bottom: 1.5rem;
+}
+
+/* Obscure Content State */
+body.content-obscured .screen {
+    filter: blur(100px);
+    pointer-events: none;
+}
+
+/* Aggressive Protection */
+.security-blindfold {
+    position: fixed;
+    inset: 0;
+    background: #000 !important;
+    z-index: 2147483647 !important;
+    display: none;
+}
+
+body.hard-obscure .security-blindfold {
+    display: block;
+}
+
+body.hard-obscure .screen,
+body.hard-obscure header,
+body.hard-obscure .input-area {
+    visibility: hidden !important;
+    opacity: 0 !important;
 }
