@@ -7,7 +7,9 @@ class WebRTCManager {
         this.roomId = null;
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
+        this.maxReconnectAttempts = 5;
         this.reconnectTimer = null;
+        this.iceCandidateQueue = []; // Queue for ICE candidates received before remote description
 
         // Callbacks
         this.onMessageReceived = onMessageReceived;
@@ -80,7 +82,20 @@ class WebRTCManager {
                 const payload = message.payload;
 
                 if (payload.sdp) {
+                    console.log("Setting remote description:", payload.sdp.type);
                     await this.peerConnection.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+                    
+                    // Process queued ICE candidates now that remote description is set
+                    while (this.iceCandidateQueue.length > 0) {
+                        const candidate = this.iceCandidateQueue.shift();
+                        try {
+                            console.log("Adding queued ICE candidate");
+                            await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                        } catch (e) {
+                            console.error('Error adding queued ice candidate', e);
+                        }
+                    }
+
                     if (payload.sdp.type === 'offer') {
                         const answer = await this.peerConnection.createAnswer();
                         await this.peerConnection.setLocalDescription(answer);
@@ -88,7 +103,13 @@ class WebRTCManager {
                     }
                 } else if (payload.ice) {
                     try {
-                        await this.peerConnection.addIceCandidate(new RTCIceCandidate(payload.ice));
+                        if (this.peerConnection.remoteDescription) {
+                            console.log("Adding ICE candidate immediately");
+                            await this.peerConnection.addIceCandidate(new RTCIceCandidate(payload.ice));
+                        } else {
+                            console.log("Queuing ICE candidate (remote description not set)");
+                            this.iceCandidateQueue.push(payload.ice);
+                        }
                     } catch (e) {
                         console.error('Error adding received ice candidate', e);
                     }
