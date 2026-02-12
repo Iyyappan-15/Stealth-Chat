@@ -121,9 +121,21 @@ function startDecoyMessages() {
 }
 
 function initNetworking() {
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+    // WebSockets Protocol: 'wss' for HTTPS, 'ws' for HTTP
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const host = window.location.host;
-    const signalingUrl = `${protocol}://${host}`;
+
+    // --- CONFIGURATION ---
+    // 1. When local: connect to your local Node.js server (usually port 8080)
+    // 2. When deployed: connect to your hosted backend (on Render, Railway, etc.)
+    const LOCAL_SIGNALING_URL = `${protocol}://localhost:8080`;
+    const PROD_SIGNALING_URL = 'wss://YOUR-BACKEND-SERVER.onrender.com';
+    // ---------------------
+
+    const signalingUrl = isLocalhost ? LOCAL_SIGNALING_URL : PROD_SIGNALING_URL;
+
+    console.log(`[NETWORKING] Initializing connection to: ${signalingUrl}`);
 
     webrtcManager = new window.WebRTCManager(
         signalingUrl,
