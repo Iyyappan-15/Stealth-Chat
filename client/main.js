@@ -121,6 +121,7 @@ function startDecoyMessages() {
 }
 
 function initNetworking() {
+<<<<<<< Updated upstream
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
     // WebSockets Protocol: 'wss' for HTTPS, 'ws' for HTTP
@@ -136,6 +137,20 @@ function initNetworking() {
     const signalingUrl = isLocalhost ? LOCAL_SIGNALING_URL : PROD_SIGNALING_URL;
 
     console.log(`[NETWORKING] Initializing connection to: ${signalingUrl}`);
+=======
+    // Use configured signaling server URL from config.js
+    let signalingUrl = window.SIGNALING_SERVER_URL;
+
+    // Fallback to same-host if not configured (for local development)
+    if (!signalingUrl) {
+        const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        const host = window.location.host;
+        signalingUrl = `${protocol}://${host}`;
+        console.warn('⚠️ SIGNALING_SERVER_URL not configured in config.js. Using same-host:', signalingUrl);
+    } else {
+        console.log('🔗 Connecting to signaling server:', signalingUrl);
+    }
+>>>>>>> Stashed changes
 
     webrtcManager = new window.WebRTCManager(
         signalingUrl,

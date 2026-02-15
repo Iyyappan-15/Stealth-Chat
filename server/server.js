@@ -11,7 +11,13 @@ const wss = new WebSocket.Server({ server });
 const PORT = process.env.PORT || 8080;
 
 // Enable CORS for all routes
-app.use(cors());
+// In production, you may want to restrict this to your Netlify domain
+const corsOptions = {
+    origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : '*',
+    methods: ['GET', 'POST'],
+    credentials: true
+};
+app.use(cors(corsOptions));
 
 // Serve static files from the client directory
 const clientPath = path.join(__dirname, '../client');
@@ -19,11 +25,33 @@ app.use(express.static(clientPath));
 
 console.log(`Serving static files from: ${clientPath}`);
 
+// Health check endpoint for deployment verification
+app.get('/health', (req, res) => {
+    res.json({
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        activeRooms: Object.keys(rooms).length,
+        totalConnections: Object.values(rooms).reduce((acc, room) => acc + room.length, 0)
+    });
+});
+
+// API endpoint to check room status
+app.get('/api/room/:roomId', (req, res) => {
+    const roomId = req.params.roomId;
+    const room = rooms[roomId];
+    res.json({
+        roomId,
+        exists: !!room,
+        peerCount: room ? room.length : 0,
+        full: room && room.length >= 2
+    });
+});
+
 // Store clients: { roomId: [client1, client2] }
 const rooms = {};
 
 wss.on('connection', (ws) => {
-    console.log('New WebSocket connection established');
+    console.log('New WebSocket connection established at', new Date().toISOString());
 
     // Set connection timeout
     const connectionTimeout = setTimeout(() => {
@@ -38,8 +66,10 @@ wss.on('connection', (ws) => {
         try {
             data = JSON.parse(message);
         } catch (e) {
-            console.error('Invalid JSON received');
-            ws.send(JSON.stringify({ type: 'error', message: 'Invalid message format' }));
+            console.error('Invalid JSON received:', e.message);
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'error', message: 'Invalid message format' }));
+            }
             return;
         }
 
@@ -107,6 +137,9 @@ wss.on('connection', (ws) => {
     });
 });
 
-server.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`✅ Stealth Chat Signaling Server running on port ${PORT}`);
+    console.log(`📡 WebSocket ready for connections`);
+    console.log(`🏥 Health check available at http://localhost:${PORT}/health`);
+    console.log(`⏰ Started at ${new Date().toISOString()}`);
 });

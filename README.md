@@ -151,6 +151,19 @@ http://localhost:8080
 4. Enter the same Room ID on both computers
 5. Wait for connection and start chatting!
 
+**Option C: Different Networks (Production Deployment)**
+
+For real-world usage where you and your friend are on different WiFi networks or in different locations:
+
+1. **Deploy the server** to a cloud platform (Render, Railway, etc.)
+2. **Deploy the client** to static hosting (Netlify, Vercel, etc.)
+3. **Share the client URL** with your friend
+
+📚 **See our deployment guides:**
+- [🚀 QUICK_START.md](./QUICK_START.md) - Fast 5-minute deployment guide
+- [📖 DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) - Comprehensive deployment documentation
+
+
 ---
 
 ## 🧪 How to Verify (Testing)
@@ -261,10 +274,13 @@ Stealth-Chat/
 ├── client/
 │   ├── index.html         # Main UI
 │   ├── style.css          # Styling
+│   ├── config.js          # 🆕 Server configuration
 │   ├── main.js            # Application logic
 │   ├── webrtc.js          # WebRTC connection manager
 │   ├── crypto.js          # Encryption/decryption
 │   └── screenshotDetector.js  # Security monitoring
+├── QUICK_START.md         # 🆕 Quick deployment guide
+├── DEPLOYMENT_GUIDE.md    # 🆕 Detailed deployment instructions
 └── README.md              # This file
 ```
 
@@ -285,7 +301,7 @@ A: All messages are lost (by design). You'll need to reconnect.
 A: No. This is a P2P demo limited to 2 peers per room.
 
 **Q: Does this work over the internet?**  
-A: Yes, but you'll need to expose port 8080 or deploy the server to a public host.
+A: Yes! Deploy the server to Render/Railway and the client to Netlify. See [QUICK_START.md](./QUICK_START.md) for step-by-step instructions.
 
 **Q: Is this production-ready?**  
 A: No. This is an educational demonstration. Use established solutions like Signal for real secure messaging.
