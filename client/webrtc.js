@@ -7,7 +7,6 @@ class WebRTCManager {
         this.roomId = null;
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
-        this.maxReconnectAttempts = 5;
         this.reconnectTimer = null;
         this.iceCandidateQueue = []; // Queue for ICE candidates received before remote description
 
@@ -20,7 +19,10 @@ class WebRTCManager {
         this.config = {
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' },
+                { urls: 'stun:stun3.l.google.com:19302' },
+                { urls: 'stun:stun4.l.google.com:19302' }
             ]
         };
     }
@@ -84,7 +86,7 @@ class WebRTCManager {
                 if (payload.sdp) {
                     console.log("Setting remote description:", payload.sdp.type);
                     await this.peerConnection.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-                    
+
                     // Process queued ICE candidates now that remote description is set
                     while (this.iceCandidateQueue.length > 0) {
                         const candidate = this.iceCandidateQueue.shift();
