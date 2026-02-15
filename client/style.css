@@ -150,6 +150,120 @@ button:active {
     transform: scale(0.98);
 }
 
+/* Mode Selection */
+.mode-selection {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 2rem;
+}
+
+.mode-btn {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    color: #888;
+    padding: 12px 20px;
+    font-size: 0.85rem;
+    box-shadow: none;
+}
+
+.mode-btn.active {
+    background: var(--secondary-color);
+    color: #000;
+    box-shadow: var(--secondary-glow);
+}
+
+.mode-btn:hover:not(.active) {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+/* Room Modes */
+.room-mode {
+    animation: fadeIn 0.3s ease;
+}
+
+.mode-description {
+    font-size: 0.75rem;
+    color: #888;
+    margin-bottom: 1.5rem;
+    line-height: 1.6;
+}
+
+/* Generated Room Display */
+.generated-room-display {
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 1.5rem;
+}
+
+.room-id-label {
+    font-size: 0.7rem;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+}
+
+.room-id-value {
+    font-size: 1.8rem;
+    color: var(--accent-color);
+    font-weight: 800;
+    letter-spacing: 2px;
+    margin-bottom: 15px;
+    text-shadow: var(--accent-glow);
+    word-break: break-all;
+}
+
+.copy-btn {
+    background: rgba(0, 229, 255, 0.1);
+    border: 1px solid var(--secondary-color);
+    color: var(--secondary-color);
+    padding: 10px 20px;
+    font-size: 0.75rem;
+    box-shadow: none;
+}
+
+.copy-btn:hover:not(:disabled) {
+    background: var(--secondary-color);
+    color: #000;
+    box-shadow: var(--secondary-glow);
+}
+
+.copy-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+/* Action Buttons */
+.action-btn {
+    width: 100%;
+    margin-top: 10px;
+}
+
+.action-btn.secondary {
+    background: var(--accent-color);
+    box-shadow: var(--accent-glow);
+}
+
+.action-btn.secondary:hover {
+    box-shadow: 0 0 30px var(--accent-color);
+}
+
+.status {
+    margin-top: 1rem;
+    font-size: 0.8rem;
+    min-height: 20px;
+    color: var(--accent-color);
+}
+
+.status.error {
+    color: var(--danger-color);
+}
+
+
 /* Header */
 header {
     padding: 1rem 2rem;
