@@ -125,8 +125,18 @@ class WebRTCManager {
                 break;
 
             case 'full':
-                alert('Room is full!');
-                this.ws.close();
+                alert('Room is full! This room already has 2 members.');
+                window.location.reload();
+                break;
+
+            case 'locked':
+                alert('⚠️ ROOM LOCKED\n\n' + (message.message || 'This room is already in use and locked for security. Please create a new room or use a different room ID.'));
+                window.location.reload();
+                break;
+
+            case 'error':
+                console.error('Server error:', message.message);
+                alert('Server error: ' + message.message);
                 break;
         }
     }

@@ -29,10 +29,35 @@
         <div class="container">
             <h1>🕵️ STEALTH</h1>
             <p class="subtitle">Military-Grade | P2P | ZERO STORAGE</p>
-            <div class="input-group">
-                <input type="text" id="room-input" placeholder="ACCESS KEY / ROOM ID" autocomplete="off">
-                <button id="join-btn">ESTABLISH SECURE LINK</button>
+
+            <!-- Mode Selection -->
+            <div class="mode-selection">
+                <button id="create-mode-btn" class="mode-btn active">CREATE ROOM</button>
+                <button id="join-mode-btn" class="mode-btn">JOIN ROOM</button>
             </div>
+
+            <!-- Create Room Mode -->
+            <div id="create-mode" class="room-mode">
+                <p class="mode-description">Generate a secure room ID and share it with your peer</p>
+                <div class="generated-room-display">
+                    <div class="room-id-label">Your Room ID:</div>
+                    <div class="room-id-value" id="generated-room-id">---</div>
+                    <button id="copy-room-btn" class="copy-btn" disabled>📋 COPY</button>
+                </div>
+                <button id="generate-room-btn" class="action-btn">🔑 GENERATE SECURE ROOM</button>
+                <button id="create-join-btn" class="action-btn secondary" style="display:none;">ESTABLISH SECURE
+                    LINK</button>
+            </div>
+
+            <!-- Join Room Mode -->
+            <div id="join-mode" class="room-mode hidden">
+                <p class="mode-description">Enter the room ID shared by your peer</p>
+                <div class="input-group">
+                    <input type="text" id="room-input" placeholder="ENTER ROOM ID" autocomplete="off">
+                    <button id="join-room-btn" class="action-btn">ESTABLISH SECURE LINK</button>
+                </div>
+            </div>
+
             <p class="status" id="login-status"></p>
         </div>
     </div>

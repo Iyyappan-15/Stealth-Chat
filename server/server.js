@@ -39,16 +39,21 @@ app.get('/health', (req, res) => {
 app.get('/api/room/:roomId', (req, res) => {
     const roomId = req.params.roomId;
     const room = rooms[roomId];
+    const isLocked = lockedRooms[roomId] && lockedRooms[roomId].locked;
     res.json({
         roomId,
         exists: !!room,
         peerCount: room ? room.length : 0,
-        full: room && room.length >= 2
+        full: room && room.length >= 2,
+        locked: isLocked,
+        lockedAt: isLocked ? lockedRooms[roomId].connectedAt : null
     });
 });
 
 // Store clients: { roomId: [client1, client2] }
+// Store locked rooms: { roomId: { locked: true, connectedAt: timestamp } }
 const rooms = {};
+const lockedRooms = {};
 
 wss.on('connection', (ws) => {
     console.log('New WebSocket connection established at', new Date().toISOString());
@@ -84,6 +89,17 @@ wss.on('connection', (ws) => {
         if (type === 'join') {
             clearTimeout(connectionTimeout);
 
+            // Check if room is locked (already has active connection)
+            if (lockedRooms[roomId] && lockedRooms[roomId].locked) {
+                console.log(`Room ${roomId} is locked - rejecting connection`);
+                ws.send(JSON.stringify({
+                    type: 'locked',
+                    message: 'This room is already in use and locked for security'
+                }));
+                ws.close();
+                return;
+            }
+
             if (!rooms[roomId]) {
                 rooms[roomId] = [];
             }
@@ -91,6 +107,7 @@ wss.on('connection', (ws) => {
             // Limit to 2 peers for this P2P demo
             if (rooms[roomId].length >= 2) {
                 ws.send(JSON.stringify({ type: 'full' }));
+                ws.close();
                 return;
             }
 
@@ -101,6 +118,13 @@ wss.on('connection', (ws) => {
 
             // Notify if another peer is waiting
             if (rooms[roomId].length === 2) {
+                // Lock the room now that 2 peers are connected
+                lockedRooms[roomId] = {
+                    locked: true,
+                    connectedAt: new Date().toISOString()
+                };
+                console.log(`Room ${roomId} is now LOCKED (2 peers connected)`);
+
                 // Send 'ready' ONLY to the newly joined peer to avoid glare (race condition)
                 ws.send(JSON.stringify({ type: 'ready' }));
             }
@@ -123,6 +147,13 @@ wss.on('connection', (ws) => {
         if (ws.roomId && rooms[ws.roomId]) {
             rooms[ws.roomId] = rooms[ws.roomId].filter(client => client !== ws);
             console.log(`User left room: ${ws.roomId}`);
+
+            // Unlock and delete room when anyone leaves (security measure)
+            if (lockedRooms[ws.roomId]) {
+                console.log(`Room ${ws.roomId} UNLOCKED and deleted (peer disconnected)`);
+                delete lockedRooms[ws.roomId];
+            }
+
             if (rooms[ws.roomId].length === 0) {
                 delete rooms[ws.roomId];
             } else {

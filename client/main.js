@@ -3,7 +3,6 @@ const loginScreen = document.getElementById('login-screen');
 const chatScreen = document.getElementById('chat-screen');
 const panicScreen = document.getElementById('panic-screen');
 const roomInput = document.getElementById('room-input');
-const joinBtn = document.getElementById('join-btn');
 const messagesContainer = document.getElementById('messages-container');
 const messageInput = document.getElementById('message-input');
 const sendBtn = document.getElementById('send-btn');
@@ -18,11 +17,25 @@ const stealthTypingToggle = document.getElementById('stealth-typing');
 const noMetadataToggle = document.getElementById('no-metadata');
 const decoyBtn = document.getElementById('decoy-btn');
 
+// New UI Elements
+const createModeBtn = document.getElementById('create-mode-btn');
+const joinModeBtn = document.getElementById('join-mode-btn');
+const createMode = document.getElementById('create-mode');
+const joinMode = document.getElementById('join-mode');
+const generateRoomBtn = document.getElementById('generate-room-btn');
+const createJoinBtn = document.getElementById('create-join-btn');
+const joinRoomBtn = document.getElementById('join-room-btn');
+const generatedRoomId = document.getElementById('generated-room-id');
+const copyRoomBtn = document.getElementById('copy-room-btn');
+const loginStatus = document.getElementById('login-status');
+
 // State
 let myRoomId = null;
 let cryptoManager = new window.CryptoManager();
 let webrtcManager = null;
 let screenshotDetector = null;
+let currentMode = 'create'; // 'create' or 'join'
+let generatedRoom = null;
 
 // Privacy Settings
 let autoDestructTime = 10;
@@ -31,12 +44,80 @@ let anonymousIdentity = "Agent-" + Math.random().toString(36).substring(2, 6).to
 let isDecoyActive = false;
 
 // ----------------------
-// INITIALIZATION
+// MODE SWITCHING
 // ----------------------
 
-joinBtn.addEventListener('click', async () => {
-    const roomId = roomInput.value.trim();
-    if (!roomId) return alert("Please enter room ID");
+createModeBtn.addEventListener('click', () => {
+    currentMode = 'create';
+    createModeBtn.classList.add('active');
+    joinModeBtn.classList.remove('active');
+    createMode.classList.remove('hidden');
+    joinMode.classList.add('hidden');
+    loginStatus.textContent = '';
+});
+
+joinModeBtn.addEventListener('click', () => {
+    currentMode = 'join';
+    joinModeBtn.classList.add('active');
+    createModeBtn.classList.remove('active');
+    joinMode.classList.remove('hidden');
+    createMode.classList.add('hidden');
+    loginStatus.textContent = '';
+});
+
+// ----------------------
+// ROOM GENERATION
+// ----------------------
+
+function generateSecureRoomId() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Removed ambiguous chars
+    const segments = [];
+    for (let i = 0; i < 3; i++) {
+        let segment = '';
+        for (let j = 0; j < 4; j++) {
+            segment += chars[Math.floor(Math.random() * chars.length)];
+        }
+        segments.push(segment);
+    }
+    return segments.join('-');
+}
+
+generateRoomBtn.addEventListener('click', () => {
+    generatedRoom = generateSecureRoomId();
+    generatedRoomId.textContent = generatedRoom;
+    copyRoomBtn.disabled = false;
+    createJoinBtn.style.display = 'block';
+    generateRoomBtn.textContent = '🔄 REGENERATE ROOM';
+    loginStatus.textContent = '';
+});
+
+copyRoomBtn.addEventListener('click', async () => {
+    try {
+        await navigator.clipboard.writeText(generatedRoom);
+        copyRoomBtn.textContent = '✓ COPIED!';
+        setTimeout(() => {
+            copyRoomBtn.textContent = '📋 COPY';
+        }, 2000);
+    } catch (err) {
+        console.error('Failed to copy:', err);
+        loginStatus.textContent = 'Failed to copy to clipboard';
+        loginStatus.classList.add('error');
+    }
+});
+
+// ----------------------
+// JOIN ROOM
+// ----------------------
+
+async function joinRoom(roomId) {
+    if (!roomId) {
+        loginStatus.textContent = 'Please enter a room ID';
+        loginStatus.classList.add('error');
+        return;
+    }
+
+    loginStatus.textContent = 'Checking room availability...';
+    loginStatus.classList.remove('error');
 
     myRoomId = roomId;
 
@@ -51,7 +132,24 @@ joinBtn.addEventListener('click', async () => {
     await initSecurity();
     initNetworking();
     startSessionTimer();
+}
+
+createJoinBtn.addEventListener('click', () => {
+    joinRoom(generatedRoom);
 });
+
+joinRoomBtn.addEventListener('click', () => {
+    const roomId = roomInput.value.trim();
+    joinRoom(roomId);
+});
+
+roomInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        const roomId = roomInput.value.trim();
+        joinRoom(roomId);
+    }
+});
+
 
 const leaveBtn = document.getElementById('leave-btn');
 leaveBtn.addEventListener('click', () => {
