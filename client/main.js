@@ -379,8 +379,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // ----------------------
 
     sendBtn.addEventListener('click', sendMessage);
+    // Also handle touchstart for snappier mobile response
+    sendBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        sendMessage();
+    }, { passive: false });
     messageInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') sendMessage();
+        if (e.key === 'Enter') {
+            sendMessage();
+            // On mobile, dismiss keyboard after sending
+            messageInput.blur();
+        }
+    });
+
+    // Re-scroll messages when mobile virtual keyboard opens/closes (window resizes)
+    window.addEventListener('resize', () => {
+        if (messagesContainer) {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
     });
 
     // Typing indicator logic
@@ -409,6 +425,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         messageInput.value = '';
         if (webrtcManager) webrtcManager.sendMessage(JSON.stringify({ type: 'TYPING', isTyping: false }));
+        // On touch devices, scroll to show latest message (keyboard may shift layout)
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 
     function appendMessage(text, sender) {

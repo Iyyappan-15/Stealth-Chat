@@ -610,3 +610,320 @@ body.hard-obscure .input-area {
     visibility: hidden !important;
     opacity: 0 !important;
 }
+
+/* =============================================
+   RESPONSIVE / MOBILE STYLES
+   ============================================= */
+
+/* --- Tablet (≤ 900px) --- */
+@media (max-width: 900px) {
+    .container {
+        padding: 2.5rem 2rem;
+        max-width: 94vw;
+    }
+
+    h1 {
+        font-size: 2.2rem;
+    }
+
+    header {
+        padding: 0.75rem 1.25rem;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .session-timer {
+        font-size: 0.65rem;
+        order: 3;
+        width: 100%;
+        text-align: left;
+        opacity: 0.7;
+    }
+
+    .settings-group {
+        gap: 6px;
+    }
+
+    #messages-container {
+        padding: 1.25rem;
+    }
+
+    .input-area {
+        padding: 1rem 1.25rem;
+    }
+
+    #privacy-toolbar {
+        padding: 0.4rem 1.25rem;
+    }
+}
+
+/* --- Mobile (≤ 768px) --- */
+@media (max-width: 768px) {
+
+    /* Body: allow scroll when keyboard opens */
+    body {
+        height: 100dvh;
+        overflow: hidden;
+    }
+
+    /* Login Screen */
+    #login-screen {
+        padding: 1rem;
+        align-items: flex-start;
+        padding-top: 10vh;
+    }
+
+    .container {
+        padding: 1.75rem 1.25rem;
+        max-width: 100%;
+        border-radius: 14px;
+    }
+
+    h1 {
+        font-size: 1.9rem;
+        letter-spacing: -1px;
+        margin-bottom: 0.6rem;
+    }
+
+    .subtitle {
+        font-size: 0.72rem;
+        margin-bottom: 1.5rem;
+        letter-spacing: 0.5px;
+    }
+
+    .mode-btn {
+        padding: 10px 12px;
+        font-size: 0.78rem;
+    }
+
+    .room-id-value {
+        font-size: 1.3rem;
+        letter-spacing: 1px;
+    }
+
+    .action-btn {
+        padding: 14px 20px;
+        font-size: 0.88rem;
+    }
+
+    /* Chat Header — stacked two-row layout */
+    header {
+        padding: 0.6rem 1rem;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        grid-template-rows: auto auto;
+        gap: 4px 8px;
+        align-items: center;
+    }
+
+    .header-info {
+        grid-column: 1;
+        grid-row: 1;
+    }
+
+    #room-display {
+        font-size: 0.8rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 55vw;
+    }
+
+    .status-indicator {
+        font-size: 0.6rem;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+
+    .session-timer {
+        grid-column: 2;
+        grid-row: 1;
+        font-size: 0.6rem;
+        order: unset;
+        width: auto;
+        white-space: nowrap;
+    }
+
+    #session-timer-display {
+        font-size: 0.6rem;
+    }
+
+    .settings-group {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .setting-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .setting-item label {
+        font-size: 0.65rem;
+        white-space: nowrap;
+    }
+
+    #timer-select {
+        padding: 4px 6px;
+        font-size: 0.72rem;
+        background: rgba(0, 0, 0, 0.5);
+        border: 1px solid var(--glass-border);
+        color: var(--secondary-color);
+        border-radius: 6px;
+        font-family: inherit;
+    }
+
+    #decoy-btn {
+        padding: 5px 8px;
+        font-size: 0.65rem;
+    }
+
+    #leave-btn {
+        padding: 5px 10px;
+        font-size: 0.65rem;
+        margin-left: auto;
+    }
+
+    /* Messages */
+    #messages-container {
+        padding: 0.75rem;
+        gap: 12px;
+    }
+
+    .message {
+        max-width: 82%;
+        padding: 10px 14px;
+    }
+
+    .message.system {
+        font-size: 0.65rem;
+        max-width: 90%;
+    }
+
+    /* Input Area — stick to bottom with iOS safe area */
+    .input-area {
+        padding: 0.6rem 0.75rem;
+        padding-bottom: calc(0.6rem + env(safe-area-inset-bottom));
+        gap: 8px;
+    }
+
+    #message-input {
+        padding: 12px 14px;
+        font-size: 0.95rem;
+    }
+
+    #send-btn {
+        padding: 12px 14px;
+        font-size: 0.75rem;
+        letter-spacing: 1px;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+
+    /* Privacy Toolbar */
+    #privacy-toolbar {
+        padding: 0.35rem 0.75rem;
+        gap: 12px;
+        font-size: 0.65rem;
+        flex-wrap: wrap;
+    }
+
+    /* Typing Indicator */
+    #typing-indicator {
+        padding: 0 0.75rem 0.5rem;
+        font-size: 0.65rem;
+    }
+
+    /* Security Alert */
+    .alert-box {
+        padding: 2rem 1.5rem;
+        margin: 1rem;
+    }
+
+    .alert-box h2 {
+        font-size: 1.3rem;
+    }
+}
+
+/* --- Small phones (≤ 420px) --- */
+@media (max-width: 420px) {
+    h1 {
+        font-size: 1.6rem;
+    }
+
+    .container {
+        padding: 1.4rem 1rem;
+    }
+
+    .room-id-value {
+        font-size: 1.1rem;
+        letter-spacing: 0;
+    }
+
+    .mode-btn {
+        font-size: 0.72rem;
+        padding: 9px 8px;
+    }
+
+    .message {
+        max-width: 88%;
+    }
+
+    #message-input {
+        font-size: 0.9rem;
+    }
+
+    #send-btn {
+        padding: 12px 10px;
+        font-size: 0.68rem;
+    }
+
+    #room-display {
+        font-size: 0.72rem;
+        max-width: 45vw;
+    }
+
+    .generated-room-display {
+        padding: 14px;
+    }
+}
+
+/* --- Landscape phones --- */
+@media (max-height: 480px) and (orientation: landscape) {
+    #login-screen {
+        padding-top: 5vh;
+        overflow-y: auto;
+    }
+
+    .container {
+        padding: 1rem 1.5rem;
+    }
+
+    h1 {
+        font-size: 1.4rem;
+        margin-bottom: 0.4rem;
+    }
+
+    .subtitle {
+        margin-bottom: 0.8rem;
+    }
+
+    #messages-container {
+        padding: 0.5rem 0.75rem;
+        gap: 8px;
+    }
+
+    .input-area {
+        padding: 0.4rem 0.75rem;
+        padding-bottom: calc(0.4rem + env(safe-area-inset-bottom));
+    }
+
+    header {
+        padding: 0.4rem 1rem;
+    }
+}
