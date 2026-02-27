@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
     <title>Stealth Chat - Secure P2P Messaging</title>
     <!-- Google Fonts for that slick look -->
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
@@ -53,7 +53,7 @@
             <div id="join-mode" class="room-mode hidden">
                 <p class="mode-description">Enter the room ID shared by your peer</p>
                 <div class="input-group">
-                    <input type="text" id="room-input" placeholder="ENTER ROOM ID" autocomplete="off">
+                    <input type="text" id="room-input" placeholder="ENTER ROOM ID" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" inputmode="text">
                     <button id="join-room-btn" class="action-btn">ESTABLISH SECURE LINK</button>
                 </div>
             </div>
@@ -105,7 +105,7 @@
         <div id="typing-indicator" class="hidden">Peer is typing encrypted data...</div>
 
         <div class="input-area">
-            <input type="text" id="message-input" placeholder="Enter secure payload..." autocomplete="off">
+            <input type="text" id="message-input" placeholder="Enter secure payload..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="text">
             <button id="send-btn">TRANSMIT</button>
         </div>
     </div>
