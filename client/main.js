@@ -415,17 +415,27 @@ document.addEventListener('DOMContentLoaded', () => {
         const msgDiv = document.createElement('div');
         msgDiv.classList.add('message', sender);
 
-        const textSpan = document.createElement('span');
-        textSpan.textContent = text;
-        msgDiv.appendChild(textSpan);
+        // Message content wrapper
+        const contentWrapper = document.createElement('div');
+        contentWrapper.classList.add('message-content');
 
+        const textSpan = document.createElement('span');
+        textSpan.classList.add('message-text');
+        textSpan.textContent = text;
+        contentWrapper.appendChild(textSpan);
+
+        // Timestamp shown below message text in small font
         if (!noMetadataToggle.checked) {
             const timeSpan = document.createElement('span');
-            timeSpan.classList.add('timestamp');
+            timeSpan.classList.add('message-time');
             const now = new Date();
-            timeSpan.textContent = `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`;
-            msgDiv.appendChild(timeSpan);
+            const hours = now.getHours().toString().padStart(2, '0');
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            timeSpan.textContent = `${hours}:${minutes}`;
+            contentWrapper.appendChild(timeSpan);
         }
+
+        msgDiv.appendChild(contentWrapper);
 
         const timerSpan = document.createElement('div');
         timerSpan.classList.add('destruct-timer');
