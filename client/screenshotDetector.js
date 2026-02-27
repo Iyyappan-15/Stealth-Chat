@@ -59,7 +59,22 @@ class ScreenshotDetector {
 
         // 2. BLUR (Window Focus Lost / Tab Switch)
         // CRITICAL: Snipping tool causes a blur event IMMEDIATELY.
+        // MOBILE FIX: Do NOT trigger on mobile when an input/textarea gains focus
+        // (blur fires on window when keyboard opens and focus moves to input)
         window.addEventListener('blur', () => {
+            // Check if an input or textarea just received focus
+            const activeEl = document.activeElement;
+            const isMobileKeyboard = activeEl &&
+                (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable);
+
+            // Also check if this is a touch device
+            const isTouchDevice = navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
+
+            if (isTouchDevice && isMobileKeyboard) {
+                // Mobile virtual keyboard opened — not a breach
+                return;
+            }
+
             this.activateStealthLock("Window Focus Lost (Possible Screenshot)");
             if (this.onFocusLost) this.onFocusLost();
         });
@@ -72,9 +87,13 @@ class ScreenshotDetector {
         });
 
         // 4. Mouse Leave (Detecting movement to taskbar or other apps)
-        window.addEventListener('mouseleave', () => {
-            this.activateStealthLock("Security Boundary Crossed");
-        });
+        // MOBILE FIX: mouseleave fires unreliably on touch devices — skip it
+        const isTouchDevice = navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
+        if (!isTouchDevice) {
+            window.addEventListener('mouseleave', () => {
+                this.activateStealthLock("Security Boundary Crossed");
+            });
+        }
 
         // 5. Clipboard Protection (Block Copy/Cut)
         window.addEventListener('copy', (e) => {
@@ -93,13 +112,47 @@ class ScreenshotDetector {
         });
 
         // 7. Window Resize Detection (Possible Screen Capture)
+        // MOBILE FIX: Virtual keyboard opening changes window HEIGHT only.
+        // A real screen-record/split-screen attempt typically changes WIDTH.
+        // We use visualViewport if available for accurate detection.
+        let lastWindowWidth = window.innerWidth;
         let resizeTimeout;
-        window.addEventListener('resize', () => {
+
+        const handleResize = () => {
             clearTimeout(resizeTimeout);
             resizeTimeout = setTimeout(() => {
-                this.handleBreach("Window Resized");
-            }, 100);
-        });
+                const newWidth = window.innerWidth;
+
+                // Only treat it as a breach if the WIDTH changed
+                // (keyboard open only shrinks height, not width)
+                if (newWidth !== lastWindowWidth) {
+                    lastWindowWidth = newWidth;
+                    this.handleBreach("Window Resized");
+                } else {
+                    // Height changed only — this is the mobile keyboard
+                    lastWindowWidth = newWidth; // update reference
+                }
+            }, 300);
+        };
+
+        // Prefer visualViewport for modern mobile — it doesn't resize when keyboard opens
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', () => {
+                // visualViewport.resize fires for BOTH keyboard AND window resize.
+                // Only flag if outerWidth changed (real window resize)
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(() => {
+                    const newWidth = window.visualViewport.width;
+                    if (Math.abs(newWidth - lastWindowWidth) > 50) {
+                        lastWindowWidth = newWidth;
+                        this.handleBreach("Window Resized");
+                    }
+                    // else: keyboard height change — ignore
+                }, 350);
+            });
+        } else {
+            window.addEventListener('resize', handleResize);
+        }
 
         // Start DevTools Protection
         this.protectConsole();
