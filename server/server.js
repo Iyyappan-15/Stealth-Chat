@@ -43,27 +43,31 @@ app.get('/api/room/:roomId', (req, res) => {
         exists: !!room,
         peerCount: room ? room.length : 0,
         full: room && room.length >= 2,
-        locked: isLocked,
-        lockedAt: isLocked ? lockedRooms[roomId].connectedAt : null
+        locked: isLocked
     });
 });
 
 // Store clients: { roomId: [ws1, ws2] }
-// Store locked rooms: { roomId: { locked, connectedAt } }
-// Store cleanup timers: { roomId: timer } — grace period before deleting lock
 const rooms = {};
 const lockedRooms = {};
 const roomCleanupTimers = {};
 
-// How long to keep the room alive after a peer's WebSocket drops.
-// This lets brief network hiccups (mobile background, page tab switch) recover
-// without destroying the session. Set to 20 seconds.
-const ROOM_GRACE_PERIOD_MS = 20000;
+// Grace period: keep room alive after a peer's WS drops so brief hiccups don't destroy the session
+const ROOM_GRACE_PERIOD_MS = 20000; // 20 seconds
+
+// Server-side keep-alive: ping all clients every 30s to prevent proxy/load-balancer timeouts
+const SERVER_PING_INTERVAL = setInterval(() => {
+    wss.clients.forEach(ws => {
+        if (ws.readyState === WebSocket.OPEN) {
+            try { ws.send(JSON.stringify({ type: 'pong' })); } catch (e) { /* ignore */ }
+        }
+    });
+}, 30000);
 
 wss.on('connection', (ws) => {
     console.log('New WebSocket connection at', new Date().toISOString());
 
-    // Close idle connections that never join a room
+    // Close idle connections that never join a room within 30s
     const connectionTimeout = setTimeout(() => {
         if (!ws.roomId) {
             console.log('Connection timeout — no room joined');
@@ -85,6 +89,9 @@ wss.on('connection', (ws) => {
 
         const { type, roomId, payload } = data;
 
+        // Handle client-side heartbeat ping — just ignore it (server already sends pong)
+        if (type === 'ping') return;
+
         // Validate roomId on join
         if (type === 'join' && (!roomId || typeof roomId !== 'string' || roomId.trim() === '')) {
             ws.send(JSON.stringify({ type: 'error', message: 'Invalid room ID' }));
@@ -94,31 +101,39 @@ wss.on('connection', (ws) => {
         if (type === 'join') {
             clearTimeout(connectionTimeout);
 
-            // FIX: If a cleanup timer is running for this room (grace period after peer drop),
-            // cancel it — the peer has reconnected their WebSocket. This lets a brief WS drop
-            // recover without locking out the peer.
+            // If a cleanup timer is running (grace period after peer WS drop),
+            // this peer is reconnecting — cancel the cleanup and restore the session.
             if (roomCleanupTimers[roomId]) {
                 console.log(`Room ${roomId}: peer WS reconnected during grace period — cancelling cleanup.`);
                 clearTimeout(roomCleanupTimers[roomId]);
                 delete roomCleanupTimers[roomId];
-                // Re-add this socket to the room (replacing the dropped one)
+
+                // Restore room state
                 if (!rooms[roomId]) rooms[roomId] = [];
-                // Remove any stale/closed sockets first
+                // Remove any stale (closed) sockets
                 rooms[roomId] = rooms[roomId].filter(c => c.readyState === WebSocket.OPEN);
-                if (rooms[roomId].length < 2) {
+
+                if (!rooms[roomId].includes(ws)) {
                     rooms[roomId].push(ws);
                     ws.roomId = roomId;
-                    console.log(`Room ${roomId}: peer re-joined (WS recovery). Count: ${rooms[roomId].length}`);
+                }
+
+                console.log(`Room ${roomId}: restored. Peers: ${rooms[roomId].length}`);
+
+                // If we now have 2 peers again, trigger ready for the reconnecting peer
+                // so WebRTC can renegotiate if needed
+                if (rooms[roomId].length === 2) {
+                    ws.send(JSON.stringify({ type: 'ready' }));
                 }
                 return;
             }
 
-            // Check if room is locked (already has an active full P2P session)
+            // Check if room is locked (already has a full active session)
             if (lockedRooms[roomId] && lockedRooms[roomId].locked) {
                 console.log(`Room ${roomId} is locked — rejecting.`);
                 ws.send(JSON.stringify({
                     type: 'locked',
-                    message: 'This room is already in use and locked for security. Please create a new room.'
+                    message: 'This room is already in use. Please create a new room.'
                 }));
                 ws.close();
                 return;
@@ -137,13 +152,10 @@ wss.on('connection', (ws) => {
             console.log(`User joined room: ${roomId}. Total: ${rooms[roomId].length}`);
 
             if (rooms[roomId].length === 2) {
-                // Lock the room when both peers are connected
-                lockedRooms[roomId] = {
-                    locked: true,
-                    connectedAt: new Date().toISOString()
-                };
+                // Lock room when both peers are present
+                lockedRooms[roomId] = { locked: true, connectedAt: new Date().toISOString() };
                 console.log(`Room ${roomId} LOCKED (2 peers).`);
-                // Tell the second peer (the joiner) to initiate the WebRTC offer
+                // Tell the second peer (the joiner) to create the WebRTC offer
                 ws.send(JSON.stringify({ type: 'ready' }));
             }
 
@@ -167,35 +179,43 @@ wss.on('connection', (ws) => {
         if (!ws.roomId || !rooms[ws.roomId]) return;
 
         const roomId = ws.roomId;
-        console.log(`Peer WebSocket closed in room: ${roomId}`);
+        console.log(`WebSocket closed for room: ${roomId}`);
 
-        // Remove this socket from the room array
+        // Remove this socket from the room
         rooms[roomId] = rooms[roomId].filter(c => c !== ws);
 
-        // Notify remaining peer that their partner's WebSocket dropped
+        // Notify the remaining peer
         rooms[roomId].forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
                 client.send(JSON.stringify({ type: 'peer-left' }));
             }
         });
 
-        // FIX: Don't immediately destroy the room lock on WebSocket close.
-        // The P2P DataChannel may still be alive (WebRTC survives brief WS drops).
-        // Start a grace period — if the peer reconnects within 20s, cancel the cleanup.
         if (lockedRooms[roomId]) {
-            console.log(`Starting ${ROOM_GRACE_PERIOD_MS / 1000}s grace period for room ${roomId} before unlock.`);
+            // Start grace period — if same peer reconnects within 20s, restore the room
+            console.log(`Room ${roomId}: starting ${ROOM_GRACE_PERIOD_MS / 1000}s grace period.`);
             roomCleanupTimers[roomId] = setTimeout(() => {
-                console.log(`Room ${roomId}: grace period expired — unlocking and deleting.`);
+                console.log(`Room ${roomId}: grace period expired — clearing lock.`);
                 delete lockedRooms[roomId];
                 delete roomCleanupTimers[roomId];
                 if (rooms[roomId] && rooms[roomId].length === 0) {
                     delete rooms[roomId];
                 }
             }, ROOM_GRACE_PERIOD_MS);
-        } else if (rooms[roomId].length === 0) {
+        } else if (rooms[roomId] && rooms[roomId].length === 0) {
             delete rooms[roomId];
         }
     });
+
+    ws.on('error', (err) => {
+        console.error(`WebSocket error for room ${ws.roomId}:`, err.message);
+    });
+});
+
+// Clean up ping interval when server shuts down
+process.on('SIGTERM', () => {
+    clearInterval(SERVER_PING_INTERVAL);
+    server.close();
 });
 
 server.listen(PORT, '0.0.0.0', () => {
