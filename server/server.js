@@ -140,24 +140,35 @@ wss.on('connection', (ws) => {
                     client.send(JSON.stringify({ type: 'signal', payload }));
                 }
             });
+        } else if (type === 'ping') {
+            // Client keepalive — reply with pong to sustain the WebSocket
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'pong' }));
+            }
         }
     });
 
     ws.on('close', () => {
         if (ws.roomId && rooms[ws.roomId]) {
             rooms[ws.roomId] = rooms[ws.roomId].filter(client => client !== ws);
-            console.log(`User left room: ${ws.roomId}`);
-
-            // Unlock and delete room when anyone leaves (security measure)
-            if (lockedRooms[ws.roomId]) {
-                console.log(`Room ${ws.roomId} UNLOCKED and deleted (peer disconnected)`);
-                delete lockedRooms[ws.roomId];
-            }
+            console.log(`User left room: ${ws.roomId}. Remaining: ${rooms[ws.roomId].length}`);
 
             if (rooms[ws.roomId].length === 0) {
+                // Both peers gone — clean up room and lock completely
                 delete rooms[ws.roomId];
+                if (lockedRooms[ws.roomId]) {
+                    delete lockedRooms[ws.roomId];
+                    console.log(`Room ${ws.roomId} fully cleared (no peers remain).`);
+                }
             } else {
-                // Notify remaining peer that partner left
+                // One peer still connected — keep room lock alive (P2P may still be running).
+                // Unlock only so the disconnected peer CAN rejoin the signaling server
+                // without being refused. The WebRTC P2P connection survives WS drops.
+                if (lockedRooms[ws.roomId]) {
+                    delete lockedRooms[ws.roomId];
+                    console.log(`Room ${ws.roomId} unlocked — one peer left signaling, one remains.`);
+                }
+                // Notify remaining peer their partner's signaling dropped
                 rooms[ws.roomId].forEach(client => {
                     if (client.readyState === WebSocket.OPEN) {
                         client.send(JSON.stringify({ type: 'peer-left' }));

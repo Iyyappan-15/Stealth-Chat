@@ -6,17 +6,18 @@ class WebRTCManager {
         this.dataChannel = null;
         this.roomId = null;
         this.reconnectAttempts = 0;
-        this.maxReconnectAttempts = 5;
+        this.maxReconnectAttempts = 10;
         this.reconnectTimer = null;
-        this.iceCandidateQueue = []; // Queue for ICE candidates received before remote description
+        this.iceCandidateQueue = [];
+        this._disconnectTimer = null; // grace-period before declaring peer gone
+        this._pingInterval = null;    // WebSocket keepalive
 
         // Callbacks
         this.onMessageReceived = onMessageReceived;
         this.onPeerConnected = onPeerConnected;
         this.onPeerDisconnected = onPeerDisconnected;
 
-        // ICE Servers — includes STUN + free public TURN servers for cross-network connectivity
-        // (e.g., phone on 4G <-> laptop on WiFi). TURN relays traffic when STUN fails (symmetric NAT).
+        // ICE Servers
         this.config = {
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
@@ -24,7 +25,6 @@ class WebRTCManager {
                 { urls: 'stun:stun2.l.google.com:19302' },
                 { urls: 'stun:stun3.l.google.com:19302' },
                 { urls: 'stun:stun4.l.google.com:19302' },
-                // Free public TURN servers (Open Relay)
                 {
                     urls: 'turn:openrelay.metered.ca:80',
                     username: 'openrelayproject',
@@ -51,9 +51,17 @@ class WebRTCManager {
 
         this.ws.onopen = () => {
             console.log('Connected to Signaling Server');
-            this.reconnectAttempts = 0; // Reset counter on success
+            this.reconnectAttempts = 0;
             if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
             this.ws.send(JSON.stringify({ type: 'join', roomId: this.roomId }));
+
+            // Keepalive ping every 25s — prevents idle proxy/Render WebSocket drops
+            if (this._pingInterval) clearInterval(this._pingInterval);
+            this._pingInterval = setInterval(() => {
+                if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                    this.ws.send(JSON.stringify({ type: 'ping' }));
+                }
+            }, 25000);
         };
 
         this.ws.onerror = (error) => {
@@ -61,7 +69,12 @@ class WebRTCManager {
         };
 
         this.ws.onclose = () => {
-            console.log('WebSocket connection closed');
+            console.log('WebSocket connection closed — signaling only, P2P lives on');
+            if (this._pingInterval) {
+                clearInterval(this._pingInterval);
+                this._pingInterval = null;
+            }
+            // Reconnect signaling ONLY. Do NOT touch the P2P connection.
             this.handleReconnection();
         };
 
@@ -74,22 +87,20 @@ class WebRTCManager {
     handleReconnection() {
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
             this.reconnectAttempts++;
-            const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 10000); // Exponential backoff max 10s
-            console.log(`Attempting to reconnect in ${delay}ms (Attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
-
+            const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 15000);
+            console.log(`Signaling reconnect in ${delay}ms (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
             this.reconnectTimer = setTimeout(() => {
-                console.log("Reconnecting...");
                 this.connectToSignaling(this.roomId);
             }, delay);
         } else {
-            console.error("Max reconnection attempts reached. giving up.");
-            alert("Lost connection to server. Please refresh the page to try again.");
+            console.error('Max signaling reconnection attempts reached.');
+            alert('Lost connection to the signaling server. Please refresh the page.');
         }
     }
 
     async handleSignalingMessage(message) {
         switch (message.type) {
-            case 'ready': // Second peer joined, start WebRTC offer
+            case 'ready':
                 this.createPeerConnection();
                 this.createDataChannel();
                 const offer = await this.peerConnection.createOffer();
@@ -97,19 +108,17 @@ class WebRTCManager {
                 this.sendSignal({ sdp: this.peerConnection.localDescription });
                 break;
 
-            case 'signal': // Forwarded from peer
-                if (!this.peerConnection) this.createPeerConnection(); // If receiving offer
+            case 'signal':
+                if (!this.peerConnection) this.createPeerConnection();
                 const payload = message.payload;
 
                 if (payload.sdp) {
-                    console.log("Setting remote description:", payload.sdp.type);
+                    console.log('Setting remote description:', payload.sdp.type);
                     await this.peerConnection.setRemoteDescription(new RTCSessionDescription(payload.sdp));
 
-                    // Process queued ICE candidates now that remote description is set
                     while (this.iceCandidateQueue.length > 0) {
                         const candidate = this.iceCandidateQueue.shift();
                         try {
-                            console.log("Adding queued ICE candidate");
                             await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
                         } catch (e) {
                             console.error('Error adding queued ice candidate', e);
@@ -124,10 +133,8 @@ class WebRTCManager {
                 } else if (payload.ice) {
                     try {
                         if (this.peerConnection.remoteDescription) {
-                            console.log("Adding ICE candidate immediately");
                             await this.peerConnection.addIceCandidate(new RTCIceCandidate(payload.ice));
                         } else {
-                            console.log("Queuing ICE candidate (remote description not set)");
                             this.iceCandidateQueue.push(payload.ice);
                         }
                     } catch (e) {
@@ -137,9 +144,12 @@ class WebRTCManager {
                 break;
 
             case 'peer-left':
-                // Do NOT close the P2P connection just because signaling dropped.
-                // The browser might close the WebSocket on minimize, but WebRTC can survive.
-                console.log("Signaling peer disconnected (WebSocket). P2P should continue.");
+                // WebSocket signaling dropped — P2P DataChannel survives independently
+                console.log('Signaling: peer WebSocket left. P2P connection continues.');
+                break;
+
+            case 'pong':
+                // Keepalive acknowledged
                 break;
 
             case 'full':
@@ -148,13 +158,12 @@ class WebRTCManager {
                 break;
 
             case 'locked':
-                alert('⚠️ ROOM LOCKED\n\n' + (message.message || 'This room is already in use and locked for security. Please create a new room or use a different room ID.'));
+                alert('⚠️ ROOM LOCKED\n\n' + (message.message || 'This room is already in use. Please create a new room.'));
                 window.location.reload();
                 break;
 
             case 'error':
                 console.error('Server error:', message.message);
-                alert('Server error: ' + message.message);
                 break;
         }
     }
@@ -170,13 +179,50 @@ class WebRTCManager {
             }
         };
 
+        // ── CORE FIX: 'disconnected' is TEMPORARY and self-recoverable ──
+        // WebRTC state machine: new → connecting → connected ↔ disconnected → failed/closed
+        // 'disconnected' fires on: brief network blip, screen lock, mobile Wi-Fi switch.
+        // It can recover back to 'connected' AUTOMATICALLY — we must NOT call onPeerDisconnected here.
+        // Only 'failed' and 'closed' are terminal. For 'disconnected' we wait 8s grace period.
         this.peerConnection.onconnectionstatechange = () => {
-            console.log('Connection State:', this.peerConnection.connectionState);
-            if (this.peerConnection.connectionState === 'disconnected' ||
-                this.peerConnection.connectionState === 'failed' ||
-                this.peerConnection.connectionState === 'closed') {
-                this.cleanup();
-                if (this.onPeerDisconnected) this.onPeerDisconnected();
+            const state = this.peerConnection ? this.peerConnection.connectionState : 'unknown';
+            console.log('P2P Connection State:', state);
+
+            if (state === 'connected') {
+                // Cancel any pending grace-period timer — connection recovered
+                if (this._disconnectTimer) {
+                    clearTimeout(this._disconnectTimer);
+                    this._disconnectTimer = null;
+                    console.log('P2P recovered from temporary disconnect.');
+                }
+            } else if (state === 'disconnected') {
+                // Temporary — wait 8 seconds before giving up
+                console.log('P2P temporarily disconnected — waiting 8s for auto-recovery...');
+                if (this._disconnectTimer) clearTimeout(this._disconnectTimer);
+                this._disconnectTimer = setTimeout(() => {
+                    const s = this.peerConnection ? this.peerConnection.connectionState : 'closed';
+                    if (s !== 'connected') {
+                        console.log('No recovery after 8s (state: ' + s + ') — peer is gone.');
+                        this._triggerPeerDisconnected();
+                    }
+                }, 8000);
+            } else if (state === 'failed' || state === 'closed') {
+                // Terminal states — fire immediately
+                if (this._disconnectTimer) {
+                    clearTimeout(this._disconnectTimer);
+                    this._disconnectTimer = null;
+                }
+                this._triggerPeerDisconnected();
+            }
+        };
+
+        // ICE restart on failure as a last resort before giving up
+        this.peerConnection.oniceconnectionstatechange = () => {
+            const iceState = this.peerConnection ? this.peerConnection.iceConnectionState : 'unknown';
+            console.log('ICE State:', iceState);
+            if (iceState === 'failed' && this.peerConnection) {
+                console.log('ICE failed — attempting ICE restart...');
+                this.peerConnection.restartIce();
             }
         };
 
@@ -186,25 +232,41 @@ class WebRTCManager {
         };
     }
 
+    _triggerPeerDisconnected() {
+        // Guard against double-trigger
+        if (!this.peerConnection && !this.dataChannel) return;
+        this.cleanup();
+        if (this.onPeerDisconnected) this.onPeerDisconnected();
+    }
+
     createDataChannel() {
-        // Create Data Channel (Offerer side)
-        this.dataChannel = this.peerConnection.createDataChannel("chat");
+        this.dataChannel = this.peerConnection.createDataChannel('chat', {
+            ordered: true,
+            maxRetransmits: 10
+        });
         this.setupDataChannel(this.dataChannel);
     }
 
     setupDataChannel(channel) {
         this.dataChannel = channel;
         this.dataChannel.onopen = () => {
-            console.log("Data Channel OPEN");
+            console.log('Data Channel OPEN');
             if (this.onPeerConnected) this.onPeerConnected();
         };
         this.dataChannel.onmessage = (event) => {
             if (this.onMessageReceived) this.onMessageReceived(event.data);
         };
+        this.dataChannel.onerror = (err) => {
+            console.error('DataChannel error:', err);
+        };
     }
 
     sendSignal(payload) {
-        this.ws.send(JSON.stringify({ type: 'signal', roomId: this.roomId, payload }));
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify({ type: 'signal', roomId: this.roomId, payload }));
+        } else {
+            console.warn('sendSignal skipped — WebSocket not open');
+        }
     }
 
     sendMessage(data) {
@@ -216,13 +278,17 @@ class WebRTCManager {
     }
 
     cleanup() {
-        if (this.peerConnection) this.peerConnection.close();
-        if (this.dataChannel) this.dataChannel.close();
+        if (this._disconnectTimer) {
+            clearTimeout(this._disconnectTimer);
+            this._disconnectTimer = null;
+        }
+        try { if (this.peerConnection) this.peerConnection.close(); } catch (e) { }
+        try { if (this.dataChannel) this.dataChannel.close(); } catch (e) { }
         this.peerConnection = null;
         this.dataChannel = null;
     }
 
-    /** Expose the RTCPeerConnection so external managers (e.g. MediaCallManager) can add tracks */
+    /** Expose RTCPeerConnection to MediaCallManager for audio track addition */
     getPeerConnection() {
         return this.peerConnection;
     }
