@@ -9,15 +9,15 @@ class WebRTCManager {
         this.maxReconnectAttempts = 10;
         this.reconnectTimer = null;
         this.iceCandidateQueue = [];
-        this._disconnectTimer = null; // grace-period before declaring peer gone
-        this._pingInterval = null;    // WebSocket keepalive
+        this.p2pConnected = false;       // track real P2P state separately from WebSocket
+        this.disconnectTimer = null;     // delay before treating 'disconnected' as fatal
+        this._intentionalClose = false;  // suppress reconnect on deliberate close
 
         // Callbacks
         this.onMessageReceived = onMessageReceived;
         this.onPeerConnected = onPeerConnected;
         this.onPeerDisconnected = onPeerDisconnected;
 
-        // ICE Servers
         this.config = {
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
@@ -47,21 +47,22 @@ class WebRTCManager {
 
     connectToSignaling(roomId) {
         this.roomId = roomId;
+        this._intentionalClose = false;
         this.ws = new WebSocket(this.signalingUrl);
 
         this.ws.onopen = () => {
             console.log('Connected to Signaling Server');
             this.reconnectAttempts = 0;
             if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
-            this.ws.send(JSON.stringify({ type: 'join', roomId: this.roomId }));
 
-            // Keepalive ping every 25s — prevents idle proxy/Render WebSocket drops
-            if (this._pingInterval) clearInterval(this._pingInterval);
-            this._pingInterval = setInterval(() => {
-                if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-                    this.ws.send(JSON.stringify({ type: 'ping' }));
-                }
-            }, 25000);
+            // FIX: Only join if P2P is NOT already connected.
+            // If WebSocket dropped and reconnected while P2P was still alive, skip re-join
+            // to avoid hitting the room 'locked' / 'full' guard on the server.
+            if (!this.p2pConnected) {
+                this.ws.send(JSON.stringify({ type: 'join', roomId: this.roomId }));
+            } else {
+                console.log('WS reconnected but P2P still alive — skipping room re-join.');
+            }
         };
 
         this.ws.onerror = (error) => {
@@ -69,13 +70,10 @@ class WebRTCManager {
         };
 
         this.ws.onclose = () => {
-            console.log('WebSocket connection closed — signaling only, P2P lives on');
-            if (this._pingInterval) {
-                clearInterval(this._pingInterval);
-                this._pingInterval = null;
+            console.log('WebSocket connection closed');
+            if (!this._intentionalClose) {
+                this.handleReconnection();
             }
-            // Reconnect signaling ONLY. Do NOT touch the P2P connection.
-            this.handleReconnection();
         };
 
         this.ws.onmessage = async (event) => {
@@ -88,19 +86,26 @@ class WebRTCManager {
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
             this.reconnectAttempts++;
             const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 15000);
-            console.log(`Signaling reconnect in ${delay}ms (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
+            console.log(`WS reconnect in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
             this.reconnectTimer = setTimeout(() => {
                 this.connectToSignaling(this.roomId);
             }, delay);
         } else {
-            console.error('Max signaling reconnection attempts reached.');
-            alert('Lost connection to the signaling server. Please refresh the page.');
+            if (!this.p2pConnected) {
+                console.error('Max WS reconnection attempts reached.');
+                alert('Lost connection to server. Please refresh the page to try again.');
+            }
         }
     }
 
     async handleSignalingMessage(message) {
         switch (message.type) {
             case 'ready':
+                // FIX: Don't restart handshake if P2P already connected
+                if (this.p2pConnected) {
+                    console.log('Got ready signal but P2P already connected — ignoring.');
+                    break;
+                }
                 this.createPeerConnection();
                 this.createDataChannel();
                 const offer = await this.peerConnection.createOffer();
@@ -109,6 +114,11 @@ class WebRTCManager {
                 break;
 
             case 'signal':
+                // FIX: Don't process new signals if P2P already connected
+                if (this.p2pConnected) {
+                    console.log('Got signal but P2P already connected — ignoring.');
+                    break;
+                }
                 if (!this.peerConnection) this.createPeerConnection();
                 const payload = message.payload;
 
@@ -121,7 +131,7 @@ class WebRTCManager {
                         try {
                             await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
                         } catch (e) {
-                            console.error('Error adding queued ice candidate', e);
+                            console.error('Error adding queued ICE candidate:', e);
                         }
                     }
 
@@ -138,18 +148,14 @@ class WebRTCManager {
                             this.iceCandidateQueue.push(payload.ice);
                         }
                     } catch (e) {
-                        console.error('Error adding received ice candidate', e);
+                        console.error('Error adding ICE candidate:', e);
                     }
                 }
                 break;
 
             case 'peer-left':
-                // WebSocket signaling dropped — P2P DataChannel survives independently
-                console.log('Signaling: peer WebSocket left. P2P connection continues.');
-                break;
-
-            case 'pong':
-                // Keepalive acknowledged
+                // Signaling WS dropped — but P2P DataChannel may still be alive. Don't wipe.
+                console.log('Peer WebSocket left. P2P may still be alive — waiting...');
                 break;
 
             case 'full':
@@ -158,12 +164,20 @@ class WebRTCManager {
                 break;
 
             case 'locked':
+                // FIX: If P2P is still alive a locked message during WS reconnect is harmless
+                if (this.p2pConnected) {
+                    console.log('Room locked msg received during WS reconnect but P2P alive — ignoring.');
+                    break;
+                }
                 alert('⚠️ ROOM LOCKED\n\n' + (message.message || 'This room is already in use. Please create a new room.'));
                 window.location.reload();
                 break;
 
             case 'error':
                 console.error('Server error:', message.message);
+                if (!this.p2pConnected) {
+                    alert('Server error: ' + message.message);
+                }
                 break;
         }
     }
@@ -179,85 +193,83 @@ class WebRTCManager {
             }
         };
 
-        // ── CORE FIX: 'disconnected' is TEMPORARY and self-recoverable ──
-        // WebRTC state machine: new → connecting → connected ↔ disconnected → failed/closed
-        // 'disconnected' fires on: brief network blip, screen lock, mobile Wi-Fi switch.
-        // It can recover back to 'connected' AUTOMATICALLY — we must NOT call onPeerDisconnected here.
-        // Only 'failed' and 'closed' are terminal. For 'disconnected' we wait 8s grace period.
         this.peerConnection.onconnectionstatechange = () => {
-            const state = this.peerConnection ? this.peerConnection.connectionState : 'unknown';
+            if (!this.peerConnection) return;
+            const state = this.peerConnection.connectionState;
             console.log('P2P Connection State:', state);
 
             if (state === 'connected') {
-                // Cancel any pending grace-period timer — connection recovered
-                if (this._disconnectTimer) {
-                    clearTimeout(this._disconnectTimer);
-                    this._disconnectTimer = null;
-                    console.log('P2P recovered from temporary disconnect.');
+                this.p2pConnected = true;
+                if (this.disconnectTimer) {
+                    clearTimeout(this.disconnectTimer);
+                    this.disconnectTimer = null;
                 }
             } else if (state === 'disconnected') {
-                // Temporary — wait 8 seconds before giving up
-                console.log('P2P temporarily disconnected — waiting 8s for auto-recovery...');
-                if (this._disconnectTimer) clearTimeout(this._disconnectTimer);
-                this._disconnectTimer = setTimeout(() => {
-                    const s = this.peerConnection ? this.peerConnection.connectionState : 'closed';
-                    if (s !== 'connected') {
-                        console.log('No recovery after 8s (state: ' + s + ') — peer is gone.');
-                        this._triggerPeerDisconnected();
+                // FIX: 'disconnected' is TRANSIENT — give it 8 seconds to self-recover via ICE
+                // before tearing everything down and wiping messages.
+                console.log('P2P transient disconnect — waiting 8s for ICE recovery...');
+
+                // Try ICE restart immediately to speed up recovery
+                try {
+                    this.peerConnection.restartIce();
+                    console.log('ICE restart triggered.');
+                } catch (e) {
+                    console.warn('ICE restart not available:', e);
+                }
+
+                this.disconnectTimer = setTimeout(() => {
+                    if (!this.peerConnection) return;
+                    const cur = this.peerConnection.connectionState;
+                    if (cur === 'disconnected' || cur === 'failed') {
+                        console.log('P2P did not recover after 8s — triggering disconnect.');
+                        this._triggerDisconnect();
                     }
                 }, 8000);
             } else if (state === 'failed' || state === 'closed') {
-                // Terminal states — fire immediately
-                if (this._disconnectTimer) {
-                    clearTimeout(this._disconnectTimer);
-                    this._disconnectTimer = null;
-                }
-                this._triggerPeerDisconnected();
+                // Truly terminal states — fire immediately
+                if (this.disconnectTimer) clearTimeout(this.disconnectTimer);
+                this._triggerDisconnect();
             }
         };
 
-        // ICE restart on failure as a last resort before giving up
-        this.peerConnection.oniceconnectionstatechange = () => {
-            const iceState = this.peerConnection ? this.peerConnection.iceConnectionState : 'unknown';
-            console.log('ICE State:', iceState);
-            if (iceState === 'failed' && this.peerConnection) {
-                console.log('ICE failed — attempting ICE restart...');
-                this.peerConnection.restartIce();
-            }
-        };
-
-        // Handle receiving Data Channel (Answerer side)
         this.peerConnection.ondatachannel = (event) => {
             this.setupDataChannel(event.channel);
         };
     }
 
-    _triggerPeerDisconnected() {
-        // Guard against double-trigger
-        if (!this.peerConnection && !this.dataChannel) return;
+    _triggerDisconnect() {
+        this.p2pConnected = false;
         this.cleanup();
         if (this.onPeerDisconnected) this.onPeerDisconnected();
     }
 
     createDataChannel() {
-        this.dataChannel = this.peerConnection.createDataChannel('chat', {
-            ordered: true,
-            maxRetransmits: 10
-        });
+        this.dataChannel = this.peerConnection.createDataChannel('chat', { ordered: true });
         this.setupDataChannel(this.dataChannel);
     }
 
     setupDataChannel(channel) {
         this.dataChannel = channel;
+
         this.dataChannel.onopen = () => {
             console.log('Data Channel OPEN');
+            this.p2pConnected = true;
             if (this.onPeerConnected) this.onPeerConnected();
         };
-        this.dataChannel.onmessage = (event) => {
-            if (this.onMessageReceived) this.onMessageReceived(event.data);
+
+        this.dataChannel.onclose = () => {
+            console.log('Data Channel closed');
+            // FIX: Let onconnectionstatechange handle recovery logic with its timeout.
+            // Just update the flag here — don't fire onPeerDisconnected directly.
+            this.p2pConnected = false;
         };
+
         this.dataChannel.onerror = (err) => {
             console.error('DataChannel error:', err);
+        };
+
+        this.dataChannel.onmessage = (event) => {
+            if (this.onMessageReceived) this.onMessageReceived(event.data);
         };
     }
 
@@ -265,7 +277,7 @@ class WebRTCManager {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
             this.ws.send(JSON.stringify({ type: 'signal', roomId: this.roomId, payload }));
         } else {
-            console.warn('sendSignal skipped — WebSocket not open');
+            console.warn('Cannot send signal — WebSocket not open');
         }
     }
 
@@ -278,17 +290,24 @@ class WebRTCManager {
     }
 
     cleanup() {
-        if (this._disconnectTimer) {
-            clearTimeout(this._disconnectTimer);
-            this._disconnectTimer = null;
+        this._intentionalClose = true;
+        if (this.disconnectTimer) { clearTimeout(this.disconnectTimer); this.disconnectTimer = null; }
+        if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null; }
+        if (this.dataChannel) {
+            this.dataChannel.onclose = null;  // prevent event re-fire loop during cleanup
+            this.dataChannel.close();
         }
-        try { if (this.peerConnection) this.peerConnection.close(); } catch (e) { }
-        try { if (this.dataChannel) this.dataChannel.close(); } catch (e) { }
+        if (this.peerConnection) {
+            this.peerConnection.onconnectionstatechange = null;
+            this.peerConnection.close();
+        }
         this.peerConnection = null;
         this.dataChannel = null;
+        this.p2pConnected = false;
+        this.iceCandidateQueue = [];
     }
 
-    /** Expose RTCPeerConnection to MediaCallManager for audio track addition */
+    /** Expose the RTCPeerConnection so MediaCallManager can add audio tracks */
     getPeerConnection() {
         return this.peerConnection;
     }

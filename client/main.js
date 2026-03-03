@@ -372,9 +372,11 @@ document.addEventListener('DOMContentLoaded', () => {
         connectionStatus.classList.add('disconnected');
         encryptionStatus.classList.add('hidden');
 
-        // Advanced Self-Destruct: Wipe on disconnect
-        wipeMessages();
-        showSystemAlert("PEER DISCONNECTED - LOCAL DATA PURGED");
+        // FIX: Do NOT auto-wipe messages here. The 8-second recovery window in webrtc.js
+        // means this callback only fires when the P2P link is truly dead (not on transient drops).
+        // Messages will still self-destruct via their individual timers.
+        // The user can manually leave/terminate to purge everything.
+        showSystemAlert("⚠ PEER CONNECTION LOST");
     }
 
     async function onMessageReceived(rawMessage) {
