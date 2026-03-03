@@ -104,9 +104,33 @@
 
         <div id="typing-indicator" class="hidden">Peer is typing encrypted data...</div>
 
+        <!-- Media Transfer Progress Bar -->
+        <div id="media-progress-bar" class="media-progress hidden">
+            <div id="media-progress-fill" class="media-progress-fill"></div>
+            <span id="media-progress-label">ENCRYPTING... 0%</span>
+        </div>
+
         <div class="input-area">
+            <!-- Hidden file picker — accepts images and videos -->
+            <input type="file" id="media-file-input" accept="image/*,video/*" style="display:none">
+            <!-- Attach button -->
+            <button id="attach-btn" title="Send Encrypted Media" class="icon-btn">📎</button>
+            <!-- Call button -->
+            <button id="call-btn" title="Start Encrypted Audio Call" class="icon-btn">📞</button>
             <input type="text" id="message-input" placeholder="Enter secure payload..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="text">
             <button id="send-btn">TRANSMIT</button>
+        </div>
+    </div>
+
+    <!-- Audio Call Overlay -->
+    <div id="call-overlay" class="call-overlay hidden">
+        <div class="call-box">
+            <div class="call-pulse-ring"></div>
+            <div class="call-status-icon">🔴</div>
+            <h2 class="call-title">SECURE CALL ACTIVE</h2>
+            <p class="call-subtitle">End-to-End Encrypted · No Recording · No Trace</p>
+            <div id="call-timer" class="call-timer">00:00</div>
+            <button id="end-call-btn" class="end-call-btn">⛔ END CALL</button>
         </div>
     </div>
 
@@ -125,6 +149,8 @@
     <script src="screenshotDetector.js"></script>
     <script src="crypto.js"></script>
     <script src="webrtc.js"></script>
+    <script src="mediaCall.js"></script>
+    <script src="mediaShare.js"></script>
     <script src="main.js"></script>
 </body>
 
