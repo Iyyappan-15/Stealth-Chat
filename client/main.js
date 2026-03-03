@@ -39,6 +39,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let screenshotDetector = null;
     let currentMode = 'create'; // 'create' or 'join'
     let generatedRoom = null;
+    let mediaCallManager = null;
+    let mediaShareManager = null;
+
+    // Call timer state
+    let callSeconds = 0;
+    let callTimerInterval = null;
 
     // Privacy Settings
     let autoDestructTime = 10;
@@ -242,6 +248,102 @@ document.addEventListener('DOMContentLoaded', () => {
         );
 
         webrtcManager.connectToSignaling(myRoomId);
+
+        // ── Initialise media managers after WebRTC is set up ──
+        const callOverlay = document.getElementById('call-overlay');
+        const callTimerEl = document.getElementById('call-timer');
+        const endCallBtn = document.getElementById('end-call-btn');
+        const callBtn = document.getElementById('call-btn');
+        const attachBtn = document.getElementById('attach-btn');
+        const mediaFileInput = document.getElementById('media-file-input');
+        const progressBar = document.getElementById('media-progress-bar');
+        const progressFill = document.getElementById('media-progress-fill');
+        const progressLabel = document.getElementById('media-progress-label');
+
+        // ── MediaCallManager ──
+        mediaCallManager = new window.MediaCallManager(
+            // onCallStarted
+            () => {
+                callOverlay.classList.remove('hidden');
+                callBtn.classList.add('active-call');
+                callBtn.title = 'Call Active';
+                callSeconds = 0;
+                callTimerInterval = setInterval(() => {
+                    callSeconds++;
+                    const m = String(Math.floor(callSeconds / 60)).padStart(2, '0');
+                    const s = String(callSeconds % 60).padStart(2, '0');
+                    callTimerEl.textContent = `${m}:${s}`;
+                }, 1000);
+                showSystemAlert('📞 SECURE CALL STARTED');
+            },
+            // onCallEnded
+            () => {
+                callOverlay.classList.add('hidden');
+                callBtn.classList.remove('active-call');
+                callBtn.title = 'Start Encrypted Audio Call';
+                clearInterval(callTimerInterval);
+                callTimerInterval = null;
+                callTimerEl.textContent = '00:00';
+                showSystemAlert('📵 CALL ENDED — NO TRACE');
+            },
+            // sendDataChannelMessage
+            (msg) => webrtcManager.sendMessage(msg)
+        );
+
+        // ── MediaShareManager ──
+        mediaShareManager = new window.MediaShareManager(
+            cryptoManager,
+            appendMediaMessage,
+            (msg) => webrtcManager.sendMessage(msg),
+            () => autoDestructTime
+        );
+
+        // Progress bar callback
+        mediaShareManager.setSendProgressCallback((pct) => {
+            if (pct > 0) {
+                progressBar.classList.remove('hidden');
+                progressFill.style.width = pct + '%';
+                progressLabel.textContent = pct < 100 ? `ENCRYPTING... ${pct}%` : 'TRANSMITTING...';
+            } else {
+                progressBar.classList.add('hidden');
+                progressFill.style.width = '0%';
+            }
+        });
+
+        // ── Button wiring ──
+        // Call button
+        callBtn.addEventListener('click', () => {
+            if (mediaCallManager.isCallActive) {
+                mediaCallManager.endCall(true);
+            } else {
+                if (!cryptoManager || !cryptoManager.sessionKey) {
+                    showSystemAlert('⚠ WAIT FOR ENCRYPTION HANDSHAKE');
+                    return;
+                }
+                mediaCallManager.startCall(webrtcManager.getPeerConnection());
+            }
+        });
+
+        // End call button in overlay
+        endCallBtn.addEventListener('click', () => {
+            mediaCallManager.endCall(true);
+        });
+
+        // Attach/file button
+        attachBtn.addEventListener('click', () => {
+            if (!cryptoManager || !cryptoManager.sessionKey) {
+                showSystemAlert('⚠ WAIT FOR ENCRYPTION HANDSHAKE');
+                return;
+            }
+            mediaFileInput.click();
+        });
+
+        mediaFileInput.addEventListener('change', async () => {
+            const file = mediaFileInput.files[0];
+            if (!file) return;
+            mediaFileInput.value = ''; // reset so same file can be re-picked
+            await mediaShareManager.sendFile(file);
+        });
     }
 
     // ----------------------
@@ -302,6 +404,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 wipeMessages();
                 triggerSecurityOverlay("PEER BRACH DETECTED - DATA PURGED");
             }
+            // ── Audio Call messages ──
+            else if (payload.type === 'CALL_OFFER') {
+                if (mediaCallManager) {
+                    showSystemAlert('📞 INCOMING ENCRYPTED CALL...');
+                    await mediaCallManager.handleCallOffer(payload.sdp, webrtcManager.getPeerConnection());
+                }
+            }
+            else if (payload.type === 'CALL_ANSWER') {
+                if (mediaCallManager) {
+                    await mediaCallManager.handleCallAnswer(payload.sdp, webrtcManager.getPeerConnection());
+                }
+            }
+            else if (payload.type === 'CALL_ICE') {
+                if (mediaCallManager) {
+                    await mediaCallManager.handleCallIce(payload.candidate, webrtcManager.getPeerConnection());
+                }
+            }
+            else if (payload.type === 'CALL_END') {
+                if (mediaCallManager) {
+                    mediaCallManager.endCall(false); // peer ended, don't send another CALL_END
+                }
+            }
+            // ── Encrypted Media messages ──
+            else if (payload.type === 'MEDIA_META') {
+                if (mediaShareManager) mediaShareManager.handleMediaMeta(payload);
+            }
+            else if (payload.type === 'MEDIA_CHUNK') {
+                if (mediaShareManager) mediaShareManager.handleMediaChunk(payload);
+            }
+            else if (payload.type === 'MEDIA_END') {
+                if (mediaShareManager) await mediaShareManager.handleMediaEnd();
+            }
         } catch (e) {
             console.error("Payload Error:", e);
         }
@@ -326,18 +460,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function triggerPanicMode() {
-        // 1. Hide actual UI
+        // 1. Kill any active call
+        if (mediaCallManager) mediaCallManager.endCall(false);
+
+        // 2. Hide actual UI
         chatScreen.classList.add('hidden');
         loginScreen.classList.add('hidden');
 
-        // 2. Clear sensitive data
+        // 3. Clear sensitive data
         wipeMessages();
         cryptoManager = null; // Destroy keys
 
-        // 3. Show decoy
+        // 4. Show decoy
         panicScreen.classList.add('active');
 
-        // 4. Send wipe to peer
+        // 5. Send wipe to peer
         if (webrtcManager) {
             webrtcManager.sendMessage(JSON.stringify({ type: 'WIPE_EVERYTHING' }));
         }
@@ -370,6 +507,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function terminateSession(reason) {
+        // End call cleanly before reload
+        if (mediaCallManager && mediaCallManager.isCallActive) {
+            mediaCallManager.endCall(false);
+        }
         alert(reason);
         window.location.reload(); // Hard reset
     }
@@ -469,6 +610,54 @@ document.addEventListener('DOMContentLoaded', () => {
         const interval = setInterval(() => {
             timeLeft--;
             timerSpan.textContent = `${timeLeft}s`;
+            if (timeLeft <= 0) {
+                clearInterval(interval);
+                msgDiv.style.opacity = '0';
+                setTimeout(() => msgDiv.remove(), 300);
+            }
+        }, 1000);
+    }
+
+    /**
+     * Display a received/sent media file inline as an image or video bubble.
+     * blobUrl is revoked by the manager after the destruct timer — zero trace.
+     */
+    function appendMediaMessage(blobUrl, mimeType, sender, destructSecs) {
+        const msgDiv = document.createElement('div');
+        msgDiv.classList.add('message', sender, 'media-message');
+
+        let mediaEl;
+        if (mimeType.startsWith('video/')) {
+            mediaEl = document.createElement('video');
+            mediaEl.controls = true;
+            mediaEl.playsInline = true;
+            mediaEl.muted = false;
+        } else {
+            mediaEl = document.createElement('img');
+            mediaEl.alt = '🔒 Encrypted Media';
+        }
+        mediaEl.src = blobUrl;
+
+        const label = document.createElement('div');
+        label.classList.add('media-label');
+        label.textContent = `🔒 ENCRYPTED FILE · ${destructSecs}s`;
+
+        const timerSpan = document.createElement('div');
+        timerSpan.classList.add('destruct-timer');
+
+        msgDiv.appendChild(mediaEl);
+        msgDiv.appendChild(label);
+        msgDiv.appendChild(timerSpan);
+        messagesContainer.appendChild(msgDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+        // Self-destruct countdown
+        let timeLeft = destructSecs;
+        timerSpan.textContent = `${timeLeft}s`;
+        const interval = setInterval(() => {
+            timeLeft--;
+            timerSpan.textContent = `${timeLeft}s`;
+            label.textContent = `🔒 ENCRYPTED FILE · ${timeLeft}s`;
             if (timeLeft <= 0) {
                 clearInterval(interval);
                 msgDiv.style.opacity = '0';

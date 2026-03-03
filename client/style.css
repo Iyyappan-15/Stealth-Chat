@@ -927,3 +927,235 @@ body.hard-obscure .input-area {
         padding: 0.4rem 1rem;
     }
 }
+
+/* =============================================
+   AUDIO CALL & MEDIA SHARE — NEW STYLES
+   ============================================= */
+
+/* Icon-only buttons in the input area (📞 📎) */
+.icon-btn {
+    background: rgba(0, 229, 255, 0.08);
+    border: 1px solid var(--glass-border);
+    color: var(--secondary-color);
+    padding: 0;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    font-size: 1.3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: none;
+    transition: all 0.25s ease;
+}
+
+.icon-btn:hover {
+    background: rgba(0, 229, 255, 0.18);
+    border-color: var(--secondary-color);
+    box-shadow: 0 0 12px rgba(0, 229, 255, 0.3);
+    transform: scale(1.05) translateY(-1px);
+}
+
+.icon-btn:active {
+    transform: scale(0.96);
+}
+
+.icon-btn.active-call {
+    background: rgba(255, 42, 109, 0.15);
+    border-color: var(--danger-color);
+    box-shadow: 0 0 12px rgba(255, 42, 109, 0.5);
+    animation: pulseRed 1.5s infinite;
+}
+
+@keyframes pulseRed {
+    0%, 100% { box-shadow: 0 0 8px rgba(255, 42, 109, 0.4); }
+    50%       { box-shadow: 0 0 20px rgba(255, 42, 109, 0.8); }
+}
+
+/* ---- Call Overlay ---- */
+.call-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.92);
+    backdrop-filter: blur(30px);
+    z-index: 9000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.call-overlay.hidden {
+    display: none !important;
+}
+
+.call-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 3rem 4rem;
+    border: 1px solid rgba(255, 42, 109, 0.3);
+    border-radius: 24px;
+    background: rgba(15, 0, 5, 0.85);
+    box-shadow: 0 0 80px rgba(255, 42, 109, 0.2);
+    position: relative;
+    text-align: center;
+}
+
+/* Pulsing ring behind the icon */
+.call-pulse-ring {
+    position: absolute;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 42, 109, 0.5);
+    animation: ringExpand 2s ease-out infinite;
+    pointer-events: none;
+}
+
+@keyframes ringExpand {
+    0%   { transform: scale(0.8); opacity: 0.8; }
+    100% { transform: scale(1.8); opacity: 0; }
+}
+
+.call-status-icon {
+    font-size: 3rem;
+    animation: pulseRed 1.5s infinite;
+    position: relative;
+    z-index: 1;
+}
+
+.call-title {
+    color: var(--danger-color);
+    text-shadow: var(--danger-glow);
+    font-size: 1.5rem;
+    letter-spacing: 2px;
+}
+
+.call-subtitle {
+    font-size: 0.7rem;
+    color: #666;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.call-timer {
+    font-size: 2.4rem;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: 4px;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+}
+
+.end-call-btn {
+    background: var(--danger-color);
+    box-shadow: var(--danger-glow);
+    padding: 14px 32px;
+    font-size: 0.9rem;
+    letter-spacing: 2px;
+    margin-top: 8px;
+    border-radius: 14px;
+}
+
+.end-call-btn:hover {
+    box-shadow: 0 0 30px var(--danger-color);
+    transform: scale(1.04) translateY(-2px);
+}
+
+/* ---- Media Transfer Progress Bar ---- */
+.media-progress {
+    position: relative;
+    height: 28px;
+    background: rgba(0, 0, 0, 0.5);
+    border-top: 1px solid var(--glass-border);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    padding: 0 1rem;
+    gap: 10px;
+}
+
+.media-progress.hidden {
+    display: none !important;
+}
+
+.media-progress-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    background: linear-gradient(90deg, rgba(0, 255, 157, 0.25), rgba(0, 229, 255, 0.25));
+    transition: width 0.2s ease;
+    width: 0%;
+}
+
+.media-progress span {
+    position: relative;
+    z-index: 1;
+    font-size: 0.65rem;
+    color: var(--accent-color);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+/* ---- Media Message Bubbles ---- */
+.message.media-message {
+    padding: 8px;
+    max-width: 55%;
+}
+
+.message.media-message img,
+.message.media-message video {
+    display: block;
+    max-width: 100%;
+    max-height: 280px;
+    border-radius: 10px;
+    object-fit: cover;
+}
+
+.message.media-message video {
+    cursor: pointer;
+}
+
+.media-label {
+    font-size: 0.6rem;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 4px;
+    text-align: right;
+}
+
+/* Mobile adjustments for new elements */
+@media (max-width: 768px) {
+    .icon-btn {
+        width: 40px;
+        height: 40px;
+        font-size: 1.1rem;
+        border-radius: 10px;
+    }
+
+    .call-box {
+        padding: 2rem 1.5rem;
+        margin: 1rem;
+    }
+
+    .call-title {
+        font-size: 1.1rem;
+    }
+
+    .call-timer {
+        font-size: 1.8rem;
+    }
+
+    .message.media-message {
+        max-width: 78%;
+    }
+
+    .message.media-message img,
+    .message.media-message video {
+        max-height: 200px;
+    }
+}

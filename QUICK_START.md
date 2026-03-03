@@ -53,9 +53,64 @@
 **Test client:** Open browser console (F12)
 - Should show: `🔗 Connecting to signaling server: ...`
 
+
+## � Verify New Features (Audio Call + Encrypted Media)
+
+> You need **two browser tabs/windows** open to the same app URL for P2P testing.
+
+### Setup (do this first)
+1. Open your app in **Tab A** → Click **CREATE ROOM** → Generate a room ID → Click **ESTABLISH SECURE LINK**
+2. Open your app in **Tab B** → Click **JOIN ROOM** → Paste the same room ID → Click **ESTABLISH SECURE LINK**
+3. Wait until both tabs show **`✅ CHANNEL SECURED WITH: Agent-XXXX`** in the message area
+4. The header should now show **`● PEER CONNECTED`** in green
+
 ---
 
-## 🆘 Troubleshooting
+### 📞 Test Audio Call
+1. In **Tab A**, click the **📞 button** (left of the text box)
+   - ✅ Browser should prompt: *"Allow microphone access?"* — click **Allow**
+   - ✅ **Tab A** shows the **SECURE CALL ACTIVE** overlay with a running timer
+2. In **Tab B**, the call auto-connects (browser also prompts for mic — click Allow)
+   - ✅ **Tab B** also shows the **SECURE CALL ACTIVE** overlay
+3. Speak into one microphone — you should hear audio in the other tab
+4. Click **⛔ END CALL** on either tab
+   - ✅ Overlay disappears on **both** tabs
+   - ✅ Both tabs show system message: `📵 CALL ENDED — NO TRACE`
+
+**Verify zero trace (DevTools → Network tab):**
+- No audio files uploaded anywhere — the Network tab should show **zero audio/media requests**
+
+---
+
+### 📎 Test Encrypted Media Sharing
+1. In **Tab A**, click the **📎 button** (left of the text box)
+   - ✅ Your OS file picker opens — select any **image** (JPG/PNG) or **short video** (MP4)
+2. Watch the progress bar appear: `ENCRYPTING... XX%` → `TRANSMITTING...`
+   - ✅ In **Tab A**: the image/video appears in your message area with a destruct timer
+   - ✅ In **Tab B**: the image/video appears decrypted inline automatically
+3. Wait for the destruct timer (e.g. 10s) to count down to 0
+   - ✅ The media bubble fades out and disappears on **both** tabs
+
+**Verify zero trace (DevTools → Application tab):**
+- Open **Application → Local Storage** → should be **empty**
+- Open **Application → IndexedDB** → should be **empty**
+- Open **Network tab** → no HTTP file upload requests — data went through WebRTC DataChannel only
+
+---
+
+### Troubleshooting New Features
+
+| Problem | Solution |
+|---------|----------|
+| 📞 Call button does nothing | Wait for `✅ CHANNEL SECURED` first — encryption must complete |
+| Mic permission denied | Click the 🔒 icon in browser address bar → allow microphone |
+| Can't hear audio in other tab | Make sure both tabs allowed mic; check OS audio output |
+| 📎 Attach button does nothing | Same as call — wait for `✅ CHANNEL SECURED` message first |
+| File takes long to send | Large files (~50 MB) take ~10–30s to encrypt and chunk |
+| Media not showing on receiver | Check browser console (F12) for decryption errors |
+
+---
+
 
 | Problem | Solution |
 |---------|----------|

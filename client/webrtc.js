@@ -221,6 +221,11 @@ class WebRTCManager {
         this.peerConnection = null;
         this.dataChannel = null;
     }
+
+    /** Expose the RTCPeerConnection so external managers (e.g. MediaCallManager) can add tracks */
+    getPeerConnection() {
+        return this.peerConnection;
+    }
 }
 
 // Expose globally
