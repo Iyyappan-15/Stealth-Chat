@@ -3,7 +3,18 @@ class ScreenshotDetector {
         this.onBreachDetected = onBreachDetected;
         this.lastEscTime = 0;
         this.escCount = 0;
+        this._blurSuppressed = false;  // set true while file-picker is open
         this.initListeners();
+    }
+
+    /** Temporarily suppresses the blur/mouseleave breach for 'ms' milliseconds.
+     *  Call this immediately before opening a native file dialog or similar. */
+    suppressBlur(ms) {
+        this._blurSuppressed = true;
+        clearTimeout(this._blurSuppressTimer);
+        this._blurSuppressTimer = setTimeout(() => {
+            this._blurSuppressed = false;
+        }, ms || 3000);
     }
 
     initListeners() {
@@ -62,6 +73,8 @@ class ScreenshotDetector {
         // MOBILE FIX: Do NOT trigger on mobile when an input/textarea gains focus
         // (blur fires on window when keyboard opens and focus moves to input)
         window.addEventListener('blur', () => {
+            if (this._blurSuppressed) return;  // file-picker grace window
+
             // Check if an input or textarea just received focus
             const activeEl = document.activeElement;
             const isMobileKeyboard = activeEl &&
@@ -91,6 +104,7 @@ class ScreenshotDetector {
         const isTouchDevice = navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
         if (!isTouchDevice) {
             window.addEventListener('mouseleave', () => {
+                if (this._blurSuppressed) return;  // file-picker grace window
                 this.activateStealthLock("Security Boundary Crossed");
             });
         }

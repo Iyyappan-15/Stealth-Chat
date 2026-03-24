@@ -215,7 +215,18 @@
         </div>
     </div>
 
+    <!-- Session Seal Popup Modal -->
+    <div id="seal-popup" class="seal-popup hidden">
+        <div class="seal-popup-box">
+            <div class="seal-popup-label">🔏 SESSION SEAL ESTABLISHED</div>
+            <div id="seal-popup-emoji" class="seal-popup-emoji">????</div>
+            <p class="seal-popup-desc">Both participants must see this <strong>exact same seal</strong>.<br>If your peer's seal differs — a man-in-the-middle attack is occurring.</p>
+            <button id="seal-popup-close" class="seal-popup-close">✓ SEAL VERIFIED</button>
+        </div>
+    </div>
+
     <!-- Scripts -->
+
     <script src="config.js"></script>
     <script src="screenshotDetector.js"></script>
     <script src="crypto.js"></script>

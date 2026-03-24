@@ -48,7 +48,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const noMetadataToggle  = document.getElementById('no-metadata');
     const decoyBtn          = document.getElementById('decoy-btn');
 
-    // ─── Seal Elements ───────────────────────────────────────────────────────
+    // ─── DOM refs for seal popup ────────────────────────────────────────────
+    const sealPopup         = document.getElementById('seal-popup');
+    const sealPopupEmoji    = document.getElementById('seal-popup-emoji');
+    const sealPopupClose    = document.getElementById('seal-popup-close');
+    sealPopupClose.addEventListener('click', () => sealPopup.classList.add('hidden'));
+
     const sessionSealContainer = document.getElementById('session-seal-container');
     const sessionSealEl     = document.getElementById('session-seal');
 
@@ -377,6 +382,13 @@ document.addEventListener('DOMContentLoaded', () => {
     async function initGroupNetworking() {
         const signalingUrl = getSignalingUrl();
 
+        const progressBar   = document.getElementById('media-progress-bar');
+        const progressFill  = document.getElementById('media-progress-fill');
+        const progressLabel = document.getElementById('media-progress-label');
+        const attachBtn     = document.getElementById('attach-btn');
+        const mediaFileInput = document.getElementById('media-file-input');
+        const callBtn       = document.getElementById('call-btn');
+
         groupManager = new window.GroupChatManager(signalingUrl, {
             onMessageReceived: onGroupMessageReceived,
             onParticipantsUpdate: updateParticipantsPanel,
@@ -385,6 +397,55 @@ document.addEventListener('DOMContentLoaded', () => {
             onTyping: onGroupTyping,
             onConnectionReady: onGroupReady,
             onDisconnected: onGroupDisconnected
+        });
+
+        // Handle incoming files relayed through server
+        groupManager.onFileReceived = (blobUrl, mimeType, fileName) => {
+            appendMediaMessage(blobUrl, mimeType, 'peer', autoDestructTime);
+            setTimeout(() => URL.revokeObjectURL(blobUrl), (autoDestructTime + 2) * 1000);
+        };
+
+        // Wire up attach button for group mode
+        attachBtn.addEventListener('click', () => {
+            if (!cryptoManager || !cryptoManager.sessionKey) {
+                showSystemAlert('⚠ WAIT FOR GROUP ENCRYPTION TO ESTABLISH');
+                return;
+            }
+            if (screenshotDetector) screenshotDetector.suppressBlur(4000);
+            mediaFileInput.click();
+        });
+
+        // File selected — send via relay
+        mediaFileInput.addEventListener('change', async () => {
+            const file = mediaFileInput.files[0];
+            if (!file) return;
+            mediaFileInput.value = '';
+
+            progressBar.classList.remove('hidden');
+            progressFill.style.width = '0%';
+            progressLabel.textContent = 'ENCRYPTING...';
+
+            const success = await groupManager.sendFile(
+                file,
+                (pct) => {
+                    progressFill.style.width = pct + '%';
+                    progressLabel.textContent = pct < 100 ? `ENCRYPTING... ${pct}%` : 'RELAYING...';
+                },
+                appendMediaMessage,
+                () => autoDestructTime
+            );
+
+            setTimeout(() => {
+                progressBar.classList.add('hidden');
+                progressFill.style.width = '0%';
+            }, 800);
+
+            if (!success) showSystemAlert('⚠ FILE SEND FAILED');
+        });
+
+        // Calls not supported in group relay mode — show clear message
+        callBtn.addEventListener('click', () => {
+            showSystemAlert('⚠ AUDIO CALLS ARE P2P ONLY — NOT AVAILABLE IN GROUP MODE');
         });
 
         await groupManager.connect(myRoomId, myName, cryptoManager);
@@ -476,11 +537,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function showSessionSeal(seal) {
         currentSeal = seal;
+
+        // Update header mini-display
         sessionSealEl.textContent = seal;
         sessionSealContainer.classList.remove('hidden');
         sessionSealContainer.classList.add('seal-pulse');
         setTimeout(() => sessionSealContainer.classList.remove('seal-pulse'), 2000);
-        showSystemAlert(`🔏 SESSION SEAL: ${seal} — Verify with peer!`);
+
+        // Show prominent popup modal
+        sealPopupEmoji.textContent = seal;
+        sealPopup.classList.remove('hidden');
+
+        showSystemAlert(`🔏 SESSION SEAL: ${seal} — Compare with your peer!`);
     }
 
     function verifySeal(peerSeal) {
@@ -577,6 +645,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 showSystemAlert('⚠ WAIT FOR ENCRYPTION HANDSHAKE');
                 return;
             }
+            // Suppress the stealth blur detector while the OS file dialog is open
+            if (screenshotDetector) screenshotDetector.suppressBlur(4000);
             mediaFileInput.click();
         });
 
