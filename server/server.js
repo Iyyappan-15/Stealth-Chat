@@ -252,17 +252,17 @@ wss.on('connection', (ws) => {
 
         // ── RELAY-MSG (Group chat — onion relay hop) ──────────────────────────
         // Server receives ciphertext and re-broadcasts without inspecting content.
-        // This is the "relay hop" — clients never see each other's IPs directly.
+        // Spreads the ENTIRE message so file fields (msgType, mime, iv, data…) reach receiver.
         else if (type === 'relay-msg') {
             if (!ws.roomId || !rooms[ws.roomId]) return;
             if (roomModes[ws.roomId] !== 'group') return;
 
-            // Forward encrypted payload to ALL other members in the room
+            // Forward ALL fields to every other member — server never inspects/decrypts
             broadcastToRoom(ws.roomId, ws, {
-                type: 'relay-msg',
+                ...data,               // spread sender's fields (payload, msgType, mime, iv, data, index, etc.)
+                type: 'relay-msg',     // ensure type stays correct
                 from: ws.peerId,
-                fromName: ws.peerName,
-                payload // encrypted ciphertext — server never decrypts
+                fromName: ws.peerName
             });
         }
 

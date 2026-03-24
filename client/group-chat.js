@@ -124,13 +124,39 @@ class GroupChatManager {
 
             case 'relay-msg':
                 // Decrypt incoming relayed message
-                try {
-                    const decryptedText = await this.cryptoManager.decryptMessage(msg.payload);
-                    if (this.onMessageReceived) {
-                        this.onMessageReceived(decryptedText, msg.fromName, msg.from);
+                if (msg.payload && msg.payload.startsWith && msg.payload.startsWith('{')) {
+                    // Try as text chat message
+                    try {
+                        const decryptedText = await this.cryptoManager.decryptMessage(msg.payload);
+                        if (this.onMessageReceived) {
+                            this.onMessageReceived(decryptedText, msg.fromName, msg.from);
+                        }
+                    } catch (e) {
+                        // might be a file meta/chunk relayed as special type-tagged string
                     }
-                } catch (e) {
-                    console.error('[Group] Decryption failed:', e);
+                } else if (msg.msgType === 'MEDIA_META') {
+                    this._incomingFileMeta = {
+                        mime: msg.mime, name: msg.name,
+                        totalChunks: msg.totalChunks, iv: new Uint8Array(msg.iv)
+                    };
+                    this._incomingFileChunks = new Array(msg.totalChunks).fill(null);
+                    this._incomingFileReceived = 0;
+                } else if (msg.msgType === 'MEDIA_CHUNK') {
+                    if (this._incomingFileChunks)
+                        this._incomingFileChunks[msg.index] = new Uint8Array(msg.data);
+                    this._incomingFileReceived = (this._incomingFileReceived || 0) + 1;
+                } else if (msg.msgType === 'MEDIA_END') {
+                    await this._handleFileEnd();
+                } else {
+                    // Plain text chat relay
+                    try {
+                        const decryptedText = await this.cryptoManager.decryptMessage(msg.payload);
+                        if (this.onMessageReceived) {
+                            this.onMessageReceived(decryptedText, msg.fromName, msg.from);
+                        }
+                    } catch (e) {
+                        console.error('[Group] Decryption failed:', e);
+                    }
                 }
                 break;
 
@@ -165,6 +191,112 @@ class GroupChatManager {
             return false;
         }
     }
+
+    // ─── Send File (via relay) ─────────────────────────────────────────────────────
+    async sendFile(file, onProgress, appendMediaMessage, getDestructTime) {
+        if (!this._connected || !this.ws || this.ws.readyState !== WebSocket.OPEN) return false;
+        if (!this.cryptoManager || !this.cryptoManager.sessionKey) return false;
+
+        const MAX_FILE_MB = 20;
+        if (file.size > MAX_FILE_MB * 1024 * 1024) {
+            alert(`File too large. Maximum size is ${MAX_FILE_MB} MB for group relay.`);
+            return false;
+        }
+
+        const CHUNK_SIZE = 32 * 1024; // 32 KB — conservative for WebSocket relay
+
+        try {
+            // Read as ArrayBuffer
+            const arrayBuffer = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = e => resolve(e.target.result);
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+            });
+
+            // Encrypt the whole buffer
+            const iv = window.crypto.getRandomValues(new Uint8Array(12));
+            const encrypted = await window.crypto.subtle.encrypt(
+                { name: 'AES-GCM', iv },
+                this.cryptoManager.sessionKey,
+                arrayBuffer
+            );
+            const encData = new Uint8Array(encrypted);
+            const totalChunks = Math.ceil(encData.length / CHUNK_SIZE);
+
+            // Send META via relay (no payload key, use msgType)
+            this._relaySend({ msgType: 'MEDIA_META', mime: file.type,
+                name: file.name.replace(/[^a-zA-Z0-9._-]/g, '_').substring(0, 64),
+                totalChunks, iv: Array.from(iv) });
+
+            await new Promise(r => setTimeout(r, 50));
+
+            // Send CHUNKs
+            for (let i = 0; i < totalChunks; i++) {
+                const start = i * CHUNK_SIZE;
+                const chunk = encData.slice(start, Math.min(start + CHUNK_SIZE, encData.length));
+                this._relaySend({ msgType: 'MEDIA_CHUNK', index: i, data: Array.from(chunk) });
+                if (onProgress) onProgress(Math.round(((i + 1) / totalChunks) * 100));
+                if (i % 3 === 0) await new Promise(r => setTimeout(r, 15)); // throttle
+            }
+
+            // Send END
+            this._relaySend({ msgType: 'MEDIA_END' });
+
+            // Show own copy
+            if (appendMediaMessage && getDestructTime) {
+                const blob = new Blob([arrayBuffer], { type: file.type });
+                const blobUrl = URL.createObjectURL(blob);
+                const secs = getDestructTime();
+                appendMediaMessage(blobUrl, file.type, 'me', secs);
+                setTimeout(() => URL.revokeObjectURL(blobUrl), (secs + 2) * 1000);
+            }
+
+            return true;
+        } catch (e) {
+            console.error('[Group] sendFile error:', e);
+            return false;
+        }
+    }
+
+    /** Send a raw object through relay-msg (non-encrypted, structural messages) */
+    _relaySend(obj) {
+        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+        try { this.ws.send(JSON.stringify({ type: 'relay-msg', ...obj })); } catch (e) { /* ignore */ }
+    }
+
+    /** Reassemble and decrypt a completed incoming group file */
+    async _handleFileEnd() {
+        const meta = this._incomingFileMeta;
+        const chunks = this._incomingFileChunks;
+        this._incomingFileMeta = null;
+        this._incomingFileChunks = null;
+        this._incomingFileReceived = 0;
+        if (!meta || !chunks) return;
+
+        try {
+            const totalLen = chunks.reduce((a, c) => a + (c ? c.length : 0), 0);
+            const encData = new Uint8Array(totalLen);
+            let offset = 0;
+            for (const chunk of chunks) { if (chunk) { encData.set(chunk, offset); offset += chunk.length; } }
+
+            const decrypted = await window.crypto.subtle.decrypt(
+                { name: 'AES-GCM', iv: meta.iv },
+                this.cryptoManager.sessionKey,
+                encData
+            );
+
+            const blob = new Blob([decrypted], { type: meta.mime });
+            const blobUrl = URL.createObjectURL(blob);
+
+            if (this.onFileReceived) {
+                this.onFileReceived(blobUrl, meta.mime, meta.name);
+            }
+        } catch (e) {
+            console.error('[Group] file decrypt error:', e);
+        }
+    }
+
 
     // ─── Send Typing Indicator ──────────────────────────────────────────────────
     sendTyping(isTyping) {
