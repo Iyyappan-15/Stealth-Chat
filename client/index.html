@@ -4,8 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
-    <title>Stealth Chat - Secure P2P Messaging</title>
-    <!-- Google Fonts for that slick look -->
+    <title>Stealth Chat - Secure P2P & Group Messaging</title>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -25,12 +24,55 @@
         <p>This is a standard note-taking app. Nothing suspicious here.</p>
     </div>
 
-    <div id="login-screen" class="screen">
-        <div class="container">
+    <!-- ═══════════════════════════════════════════════════
+         STEP 1: Chat Type Selection
+    ═══════════════════════════════════════════════════ -->
+    <div id="type-select-screen" class="screen">
+        <div class="type-select-container">
             <h1>🕵️ STEALTH</h1>
-            <p class="subtitle">Military-Grade | P2P | ZERO STORAGE</p>
+            <p class="subtitle">Choose Your Communication Protocol</p>
 
-            <!-- Mode Selection -->
+            <div class="type-cards">
+                <button id="select-p2p-btn" class="type-card p2p-card">
+                    <div class="type-card-icon">🔒</div>
+                    <div class="type-card-title">PRIVATE P2P</div>
+                    <div class="type-card-desc">Direct encrypted link between two people. WebRTC — zero server relay. Maximum privacy.</div>
+                    <div class="type-card-badge">2 PEERS · WEBRTC</div>
+                </button>
+
+                <button id="select-group-btn" class="type-card group-card">
+                    <div class="type-card-icon">👥</div>
+                    <div class="type-card-title">GROUP CHAT</div>
+                    <div class="type-card-desc">Multi-person encrypted channel. Onion-layered server relay — your IP never reaches peers.</div>
+                    <div class="type-card-badge">UNLIMITED · RELAY</div>
+                </button>
+            </div>
+
+            <p class="type-footer">All communications are end-to-end encrypted · Zero storage · Zero logs</p>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════
+         STEP 2: Login / Room Join Screen
+    ═══════════════════════════════════════════════════ -->
+    <div id="login-screen" class="screen hidden">
+        <div class="container">
+            <div class="back-btn-wrap">
+                <button id="back-to-type-btn" class="back-btn">← BACK</button>
+                <span id="chat-mode-badge" class="chat-mode-badge">P2P</span>
+            </div>
+
+            <h1>🕵️ STEALTH</h1>
+            <p class="subtitle" id="login-subtitle">Military-Grade | P2P | ZERO STORAGE</p>
+
+            <!-- Display Name Input (new) -->
+            <div class="name-input-group">
+                <label class="field-label">YOUR CALL SIGN</label>
+                <input type="text" id="name-input" placeholder="AGENT-XXXX" maxlength="30"
+                    autocomplete="off" autocorrect="off" spellcheck="false">
+            </div>
+
+            <!-- Mode Selection (Create / Join) -->
             <div class="mode-selection">
                 <button id="create-mode-btn" class="mode-btn active">CREATE ROOM</button>
                 <button id="join-mode-btn" class="mode-btn">JOIN ROOM</button>
@@ -38,22 +80,22 @@
 
             <!-- Create Room Mode -->
             <div id="create-mode" class="room-mode">
-                <p class="mode-description">Generate a secure room ID and share it with your peer</p>
+                <p class="mode-description">Generate a secure room ID and share it with your peers</p>
                 <div class="generated-room-display">
                     <div class="room-id-label">Your Room ID:</div>
                     <div class="room-id-value" id="generated-room-id">---</div>
                     <button id="copy-room-btn" class="copy-btn" disabled>📋 COPY</button>
                 </div>
                 <button id="generate-room-btn" class="action-btn">🔑 GENERATE SECURE ROOM</button>
-                <button id="create-join-btn" class="action-btn secondary" style="display:none;">ESTABLISH SECURE
-                    LINK</button>
+                <button id="create-join-btn" class="action-btn secondary" style="display:none;">ESTABLISH SECURE LINK</button>
             </div>
 
             <!-- Join Room Mode -->
             <div id="join-mode" class="room-mode hidden">
                 <p class="mode-description">Enter the room ID shared by your peer</p>
                 <div class="input-group">
-                    <input type="text" id="room-input" placeholder="ENTER ROOM ID" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" inputmode="text">
+                    <input type="text" id="room-input" placeholder="ENTER ROOM ID" autocomplete="off"
+                        autocorrect="off" autocapitalize="characters" spellcheck="false" inputmode="text">
                     <button id="join-room-btn" class="action-btn">ESTABLISH SECURE LINK</button>
                 </div>
             </div>
@@ -62,14 +104,45 @@
         </div>
     </div>
 
+    <!-- ═══════════════════════════════════════════════════
+         Chat Screen
+    ═══════════════════════════════════════════════════ -->
     <div id="chat-screen" class="screen hidden">
+
+        <!-- Participants Sidebar (hamburger menu) -->
+        <div id="participants-panel" class="participants-panel">
+            <div class="participants-panel-header">
+                <span>👥 ACTIVE AGENTS</span>
+                <button id="close-panel-btn" class="close-panel-btn">✕</button>
+            </div>
+            <div id="participants-list" class="participants-list">
+                <!-- Populated dynamically -->
+            </div>
+            <div class="participants-panel-footer">
+                <span id="participants-count">0 ONLINE</span>
+            </div>
+        </div>
+        <!-- Sidebar overlay -->
+        <div id="panel-overlay" class="panel-overlay hidden"></div>
+
         <header>
+            <!-- Hamburger button (left side) -->
+            <button id="hamburger-btn" class="hamburger-btn" title="Active Participants">
+                <span></span><span></span><span></span>
+            </button>
+
             <div class="header-info">
                 <div id="room-display">CHANNEL: ...</div>
                 <div class="status-indicator">
                     <span id="connection-status" class="disconnected">● DISCONNECTED</span>
                     <span id="encryption-status" class="hidden">| 🔒 AES-256 ACTIVE</span>
                 </div>
+            </div>
+
+            <!-- Session Seal (tamper-evident 4-emoji fingerprint) -->
+            <div id="session-seal-container" class="session-seal-container hidden" title="Tamper-Evident Session Seal — if this changes mid-session, a MITM attack may be occurring">
+                <div class="session-seal-label">SEAL</div>
+                <div id="session-seal" class="session-seal">????</div>
             </div>
 
             <div class="session-timer">
@@ -111,13 +184,11 @@
         </div>
 
         <div class="input-area">
-            <!-- Hidden file picker — accepts images and videos -->
             <input type="file" id="media-file-input" accept="image/*,video/*" style="display:none">
-            <!-- Attach button -->
             <button id="attach-btn" title="Send Encrypted Media" class="icon-btn">📎</button>
-            <!-- Call button -->
             <button id="call-btn" title="Start Encrypted Audio Call" class="icon-btn">📞</button>
-            <input type="text" id="message-input" placeholder="Enter secure payload..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="text">
+            <input type="text" id="message-input" placeholder="Enter secure payload..."
+                autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="text">
             <button id="send-btn">TRANSMIT</button>
         </div>
     </div>
@@ -140,7 +211,7 @@
             <h2>⚠ PROTOCOL BREACH ⚠</h2>
             <p>UNAUTHORIZED CAPTURE ATTEMPT DETECTED.</p>
             <p>LOCAL DATA WIPED. PEER NOTIFIED.</p>
-            <button id="dismiss-alert">ACKNOWLEDGE & RECOVER</button>
+            <button id="dismiss-alert">ACKNOWLEDGE &amp; RECOVER</button>
         </div>
     </div>
 
@@ -149,6 +220,7 @@
     <script src="screenshotDetector.js"></script>
     <script src="crypto.js"></script>
     <script src="webrtc.js"></script>
+    <script src="group-chat.js"></script>
     <script src="mediaCall.js"></script>
     <script src="mediaShare.js"></script>
     <script src="main.js"></script>
