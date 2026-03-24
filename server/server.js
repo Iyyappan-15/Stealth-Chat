@@ -17,13 +17,23 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-// Serve static files from the client directory
 const clientPath = path.join(__dirname, '../client');
 app.use(express.static(clientPath));
-
 console.log(`Serving static files from: ${clientPath}`);
 
-// Health check endpoint
+// ─── Data Stores ───────────────────────────────────────────────────────────────
+// rooms: { roomId: [ ws, ws, ... ] }
+// roomModes: { roomId: 'p2p' | 'group' }
+// lockedRooms: { roomId: { locked: true, connectedAt } }  — P2P only
+// roomCleanupTimers: { roomId: timer }  — P2P grace period
+const rooms = {};
+const roomModes = {};
+const lockedRooms = {};
+const roomCleanupTimers = {};
+
+const ROOM_GRACE_PERIOD_MS = 20000;
+
+// ─── Health / Status ───────────────────────────────────────────────────────────
 app.get('/health', (req, res) => {
     res.json({
         status: 'ok',
@@ -33,29 +43,22 @@ app.get('/health', (req, res) => {
     });
 });
 
-// Room status endpoint
 app.get('/api/room/:roomId', (req, res) => {
     const roomId = req.params.roomId;
     const room = rooms[roomId];
+    const mode = roomModes[roomId] || 'unknown';
     const isLocked = lockedRooms[roomId] && lockedRooms[roomId].locked;
     res.json({
         roomId,
+        mode,
         exists: !!room,
         peerCount: room ? room.length : 0,
-        full: room && room.length >= 2,
+        full: mode === 'p2p' && room && room.length >= 2,
         locked: isLocked
     });
 });
 
-// Store clients: { roomId: [ws1, ws2] }
-const rooms = {};
-const lockedRooms = {};
-const roomCleanupTimers = {};
-
-// Grace period: keep room alive after a peer's WS drops so brief hiccups don't destroy the session
-const ROOM_GRACE_PERIOD_MS = 20000; // 20 seconds
-
-// Server-side keep-alive: ping all clients every 30s to prevent proxy/load-balancer timeouts
+// ─── Keep-alive ping ───────────────────────────────────────────────────────────
 const SERVER_PING_INTERVAL = setInterval(() => {
     wss.clients.forEach(ws => {
         if (ws.readyState === WebSocket.OPEN) {
@@ -64,6 +67,45 @@ const SERVER_PING_INTERVAL = setInterval(() => {
     });
 }, 30000);
 
+// ─── Helpers ───────────────────────────────────────────────────────────────────
+
+/** Build anonymized participant list for broadcasting */
+function buildParticipantList(roomId) {
+    if (!rooms[roomId]) return [];
+    return rooms[roomId]
+        .filter(c => c.readyState === WebSocket.OPEN)
+        .map(c => ({ name: c.peerName || 'Anonymous', id: c.peerId }));
+}
+
+/** Broadcast participants list to all members of a room */
+function broadcastParticipants(roomId) {
+    if (!rooms[roomId]) return;
+    const list = buildParticipantList(roomId);
+    const msg = JSON.stringify({ type: 'participants-list', participants: list });
+    rooms[roomId].forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+            try { client.send(msg); } catch (e) { /* ignore */ }
+        }
+    });
+}
+
+/** Broadcast a message to all room members except sender */
+function broadcastToRoom(roomId, senderWs, msgObj) {
+    if (!rooms[roomId]) return;
+    const msg = JSON.stringify(msgObj);
+    rooms[roomId].forEach(client => {
+        if (client !== senderWs && client.readyState === WebSocket.OPEN) {
+            try { client.send(msg); } catch (e) { /* ignore */ }
+        }
+    });
+}
+
+/** Generate a short unique id for a peer */
+function genPeerId() {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
+// ─── WebSocket Handler ─────────────────────────────────────────────────────────
 wss.on('connection', (ws) => {
     console.log('New WebSocket connection at', new Date().toISOString());
 
@@ -87,123 +129,202 @@ wss.on('connection', (ws) => {
             return;
         }
 
-        const { type, roomId, payload } = data;
+        const { type, roomId, payload, name, mode } = data;
 
-        // Handle client-side heartbeat ping — just ignore it (server already sends pong)
+        // Ignore client heartbeats
         if (type === 'ping') return;
 
-        // Validate roomId on join
-        if (type === 'join' && (!roomId || typeof roomId !== 'string' || roomId.trim() === '')) {
-            ws.send(JSON.stringify({ type: 'error', message: 'Invalid room ID' }));
-            return;
-        }
-
+        // ── JOIN ──────────────────────────────────────────────────────────────
         if (type === 'join') {
             clearTimeout(connectionTimeout);
 
-            // If a cleanup timer is running (grace period after peer WS drop),
-            // this peer is reconnecting — cancel the cleanup and restore the session.
-            if (roomCleanupTimers[roomId]) {
-                console.log(`Room ${roomId}: peer WS reconnected during grace period — cancelling cleanup.`);
-                clearTimeout(roomCleanupTimers[roomId]);
-                delete roomCleanupTimers[roomId];
+            if (!roomId || typeof roomId !== 'string' || roomId.trim() === '') {
+                ws.send(JSON.stringify({ type: 'error', message: 'Invalid room ID' }));
+                return;
+            }
 
-                // Restore room state
-                if (!rooms[roomId]) rooms[roomId] = [];
-                // Remove any stale (closed) sockets
-                rooms[roomId] = rooms[roomId].filter(c => c.readyState === WebSocket.OPEN);
+            const chatMode = mode === 'group' ? 'group' : 'p2p';
+            ws.peerName = (name && typeof name === 'string' && name.trim()) ? name.trim().substring(0, 30) : 'Anonymous';
+            ws.peerId = genPeerId();
+            ws.roomMode = chatMode;
 
-                if (!rooms[roomId].includes(ws)) {
-                    rooms[roomId].push(ws);
-                    ws.roomId = roomId;
+            // ── P2P Join Logic ──
+            if (chatMode === 'p2p') {
+                // Grace period reconnect
+                if (roomCleanupTimers[roomId]) {
+                    console.log(`Room ${roomId}: peer WS reconnected during grace period — cancelling cleanup.`);
+                    clearTimeout(roomCleanupTimers[roomId]);
+                    delete roomCleanupTimers[roomId];
+                    if (!rooms[roomId]) rooms[roomId] = [];
+                    rooms[roomId] = rooms[roomId].filter(c => c.readyState === WebSocket.OPEN);
+                    if (!rooms[roomId].includes(ws)) {
+                        rooms[roomId].push(ws);
+                        ws.roomId = roomId;
+                    }
+                    console.log(`Room ${roomId}: restored. Peers: ${rooms[roomId].length}`);
+                    if (rooms[roomId].length === 2) {
+                        ws.send(JSON.stringify({ type: 'ready' }));
+                    }
+                    broadcastParticipants(roomId);
+                    return;
                 }
 
-                console.log(`Room ${roomId}: restored. Peers: ${rooms[roomId].length}`);
+                // Locked room check
+                if (lockedRooms[roomId] && lockedRooms[roomId].locked) {
+                    console.log(`Room ${roomId} is locked — rejecting.`);
+                    ws.send(JSON.stringify({ type: 'locked', message: 'This room is already in use. Please create a new room.' }));
+                    ws.close();
+                    return;
+                }
 
-                // If we now have 2 peers again, trigger ready for the reconnecting peer
-                // so WebRTC can renegotiate if needed
+                if (!rooms[roomId]) { rooms[roomId] = []; roomModes[roomId] = 'p2p'; }
+
+                if (rooms[roomId].length >= 2) {
+                    ws.send(JSON.stringify({ type: 'full' }));
+                    ws.close();
+                    return;
+                }
+
+                rooms[roomId].push(ws);
+                ws.roomId = roomId;
+                console.log(`[P2P] User "${ws.peerName}" joined room: ${roomId}. Total: ${rooms[roomId].length}`);
+
+                broadcastParticipants(roomId);
+
                 if (rooms[roomId].length === 2) {
+                    lockedRooms[roomId] = { locked: true, connectedAt: new Date().toISOString() };
+                    console.log(`Room ${roomId} LOCKED (2 peers).`);
+                    // Notify the second peer (the joiner) to create the WebRTC offer
                     ws.send(JSON.stringify({ type: 'ready' }));
+                    // Notify the first peer that the second joined (with name)
+                    const firstPeer = rooms[roomId].find(c => c !== ws);
+                    if (firstPeer && firstPeer.readyState === WebSocket.OPEN) {
+                        firstPeer.send(JSON.stringify({ type: 'peer-joined', name: ws.peerName }));
+                    }
                 }
-                return;
             }
 
-            // Check if room is locked (already has a full active session)
-            if (lockedRooms[roomId] && lockedRooms[roomId].locked) {
-                console.log(`Room ${roomId} is locked — rejecting.`);
-                ws.send(JSON.stringify({
-                    type: 'locked',
-                    message: 'This room is already in use. Please create a new room.'
-                }));
-                ws.close();
-                return;
+            // ── GROUP Join Logic ──
+            else if (chatMode === 'group') {
+                if (!rooms[roomId]) { rooms[roomId] = []; roomModes[roomId] = 'group'; }
+
+                // If room exists but was created as P2P, reject
+                if (roomModes[roomId] === 'p2p') {
+                    ws.send(JSON.stringify({ type: 'error', message: 'Room exists as P2P mode. Cannot join as group.' }));
+                    ws.close();
+                    return;
+                }
+
+                rooms[roomId].push(ws);
+                ws.roomId = roomId;
+                console.log(`[GROUP] User "${ws.peerName}" joined room: ${roomId}. Total: ${rooms[roomId].length}`);
+
+                // Acknowledge join to this new member
+                ws.send(JSON.stringify({ type: 'group-joined', peerId: ws.peerId, name: ws.peerName }));
+
+                // Notify all existing members that someone joined
+                broadcastToRoom(roomId, ws, {
+                    type: 'participant-joined',
+                    name: ws.peerName,
+                    id: ws.peerId
+                });
+
+                // Send participant list to everyone
+                broadcastParticipants(roomId);
             }
+        }
 
-            if (!rooms[roomId]) rooms[roomId] = [];
-
-            if (rooms[roomId].length >= 2) {
-                ws.send(JSON.stringify({ type: 'full' }));
-                ws.close();
-                return;
-            }
-
-            rooms[roomId].push(ws);
-            ws.roomId = roomId;
-            console.log(`User joined room: ${roomId}. Total: ${rooms[roomId].length}`);
-
-            if (rooms[roomId].length === 2) {
-                // Lock room when both peers are present
-                lockedRooms[roomId] = { locked: true, connectedAt: new Date().toISOString() };
-                console.log(`Room ${roomId} LOCKED (2 peers).`);
-                // Tell the second peer (the joiner) to create the WebRTC offer
-                ws.send(JSON.stringify({ type: 'ready' }));
-            }
-
-        } else if (type === 'signal') {
+        // ── SIGNAL (P2P WebRTC signaling) ─────────────────────────────────────
+        else if (type === 'signal') {
             if (!roomId || !rooms[roomId]) {
                 if (ws.readyState === WebSocket.OPEN) {
                     ws.send(JSON.stringify({ type: 'error', message: 'Invalid room' }));
                 }
                 return;
             }
-            // Forward SDP/ICE to the other peer
+            // Forward SDP/ICE to the other peer (P2P only)
             rooms[roomId].forEach(client => {
                 if (client !== ws && client.readyState === WebSocket.OPEN) {
                     client.send(JSON.stringify({ type: 'signal', payload }));
                 }
             });
         }
+
+        // ── RELAY-MSG (Group chat — onion relay hop) ──────────────────────────
+        // Server receives ciphertext and re-broadcasts without inspecting content.
+        // This is the "relay hop" — clients never see each other's IPs directly.
+        else if (type === 'relay-msg') {
+            if (!ws.roomId || !rooms[ws.roomId]) return;
+            if (roomModes[ws.roomId] !== 'group') return;
+
+            // Forward encrypted payload to ALL other members in the room
+            broadcastToRoom(ws.roomId, ws, {
+                type: 'relay-msg',
+                from: ws.peerId,
+                fromName: ws.peerName,
+                payload // encrypted ciphertext — server never decrypts
+            });
+        }
+
+        // ── RELAY-TYPING (Group typing indicator) ─────────────────────────────
+        else if (type === 'relay-typing') {
+            if (!ws.roomId || !rooms[ws.roomId]) return;
+            broadcastToRoom(ws.roomId, ws, {
+                type: 'relay-typing',
+                from: ws.peerId,
+                fromName: ws.peerName,
+                isTyping: data.isTyping
+            });
+        }
     });
 
+    // ── DISCONNECT ─────────────────────────────────────────────────────────────
     ws.on('close', () => {
         if (!ws.roomId || !rooms[ws.roomId]) return;
 
         const roomId = ws.roomId;
-        console.log(`WebSocket closed for room: ${roomId}`);
+        const mode = roomModes[roomId];
+        console.log(`WebSocket closed for "${ws.peerName}" in room: ${roomId} [${mode}]`);
 
-        // Remove this socket from the room
+        // Remove from room
         rooms[roomId] = rooms[roomId].filter(c => c !== ws);
 
-        // Notify the remaining peer
-        rooms[roomId].forEach(client => {
-            if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify({ type: 'peer-left' }));
-            }
-        });
-
-        if (lockedRooms[roomId]) {
-            // Start grace period — if same peer reconnects within 20s, restore the room
-            console.log(`Room ${roomId}: starting ${ROOM_GRACE_PERIOD_MS / 1000}s grace period.`);
-            roomCleanupTimers[roomId] = setTimeout(() => {
-                console.log(`Room ${roomId}: grace period expired — clearing lock.`);
-                delete lockedRooms[roomId];
-                delete roomCleanupTimers[roomId];
-                if (rooms[roomId] && rooms[roomId].length === 0) {
-                    delete rooms[roomId];
+        if (mode === 'p2p') {
+            // Notify remaining peer
+            rooms[roomId].forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                    client.send(JSON.stringify({ type: 'peer-left', name: ws.peerName }));
                 }
-            }, ROOM_GRACE_PERIOD_MS);
-        } else if (rooms[roomId] && rooms[roomId].length === 0) {
-            delete rooms[roomId];
+            });
+
+            if (lockedRooms[roomId]) {
+                console.log(`Room ${roomId}: starting ${ROOM_GRACE_PERIOD_MS / 1000}s grace period.`);
+                roomCleanupTimers[roomId] = setTimeout(() => {
+                    console.log(`Room ${roomId}: grace period expired — clearing lock.`);
+                    delete lockedRooms[roomId];
+                    delete roomCleanupTimers[roomId];
+                    if (rooms[roomId] && rooms[roomId].length === 0) {
+                        delete rooms[roomId];
+                        delete roomModes[roomId];
+                    }
+                }, ROOM_GRACE_PERIOD_MS);
+            } else if (rooms[roomId] && rooms[roomId].length === 0) {
+                delete rooms[roomId];
+                delete roomModes[roomId];
+            }
+        } else if (mode === 'group') {
+            // Notify all remaining group members
+            broadcastToRoom(roomId, null, {
+                type: 'participant-left',
+                name: ws.peerName,
+                id: ws.peerId
+            });
+            broadcastParticipants(roomId);
+
+            if (rooms[roomId].length === 0) {
+                delete rooms[roomId];
+                delete roomModes[roomId];
+            }
         }
     });
 
@@ -212,7 +333,6 @@ wss.on('connection', (ws) => {
     });
 });
 
-// Clean up ping interval when server shuts down
 process.on('SIGTERM', () => {
     clearInterval(SERVER_PING_INTERVAL);
     server.close();
@@ -220,7 +340,7 @@ process.on('SIGTERM', () => {
 
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ Stealth Chat Signaling Server running on port ${PORT}`);
-    console.log(`📡 WebSocket ready for connections`);
+    console.log(`📡 WebSocket ready for P2P + Group connections`);
     console.log(`🏥 Health check: http://localhost:${PORT}/health`);
     console.log(`⏰ Started at ${new Date().toISOString()}`);
 });

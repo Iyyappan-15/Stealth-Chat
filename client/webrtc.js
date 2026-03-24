@@ -1,6 +1,7 @@
 class WebRTCManager {
-    constructor(signalingUrl, onMessageReceived, onPeerConnected, onPeerDisconnected) {
+    constructor(signalingUrl, onMessageReceived, onPeerConnected, onPeerDisconnected, myName) {
         this.signalingUrl = signalingUrl;
+        this.myName = myName || 'Anonymous';
         this.ws = null;
         this.peerConnection = null;
         this.dataChannel = null;
@@ -75,7 +76,7 @@ class WebRTCManager {
 
             // Only rejoin if P2P is not already live
             if (!this.p2pConnected) {
-                this.ws.send(JSON.stringify({ type: 'join', roomId: this.roomId }));
+                this.ws.send(JSON.stringify({ type: 'join', roomId: this.roomId, name: this.myName, mode: 'p2p' }));
             } else {
                 console.log('WS reconnected but P2P still alive — skipping room re-join.');
             }

@@ -1159,3 +1159,480 @@ body.hard-obscure .input-area {
         max-height: 200px;
     }
 }
+
+
+/* =============================================
+   TYPE SELECTION SCREEN
+   ============================================= */
+
+#type-select-screen {
+    justify-content: center;
+    align-items: center;
+    background: var(--bg-color);
+}
+
+.type-select-container {
+    text-align: center;
+    padding: 3rem 2rem;
+    max-width: 680px;
+    width: 100%;
+}
+
+.type-cards {
+    display: flex;
+    gap: 24px;
+    margin: 2.5rem 0;
+    justify-content: center;
+}
+
+.type-card {
+    flex: 1;
+    max-width: 280px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 2.5rem 1.5rem;
+    border-radius: 20px;
+    background: var(--card-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(20px);
+    cursor: pointer;
+    transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 0 30px rgba(0,0,0,0.5);
+    color: var(--text-color);
+    text-align: center;
+    font-family: inherit;
+    font-weight: 800;
+}
+
+.type-card:hover {
+    transform: translateY(-6px) scale(1.02);
+}
+
+.p2p-card {
+    border-color: rgba(0, 229, 255, 0.35);
+    box-shadow: 0 0 40px rgba(0, 229, 255, 0.1), inset 0 0 20px rgba(0,229,255,0.04);
+}
+
+.p2p-card:hover {
+    border-color: var(--secondary-color);
+    box-shadow: 0 0 60px rgba(0, 229, 255, 0.25), inset 0 0 25px rgba(0,229,255,0.08);
+}
+
+.group-card {
+    border-color: rgba(0, 255, 157, 0.35);
+    box-shadow: 0 0 40px rgba(0, 255, 157, 0.1), inset 0 0 20px rgba(0,255,157,0.04);
+}
+
+.group-card:hover {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 60px rgba(0, 255, 157, 0.25), inset 0 0 25px rgba(0,255,157,0.08);
+}
+
+.type-card-icon {
+    font-size: 3.5rem;
+    line-height: 1;
+    filter: drop-shadow(0 0 12px currentColor);
+}
+
+.type-card-title {
+    font-size: 1.1rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: inherit;
+}
+
+.p2p-card .type-card-title { color: var(--secondary-color); }
+.group-card .type-card-title { color: var(--accent-color); }
+
+.type-card-desc {
+    font-size: 0.72rem;
+    color: #888;
+    line-height: 1.6;
+    font-weight: 400;
+    letter-spacing: 0.3px;
+}
+
+.type-card-badge {
+    font-size: 0.65rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 5px 14px;
+    border-radius: 20px;
+    margin-top: 4px;
+}
+
+.p2p-card .type-card-badge {
+    background: rgba(0,229,255,0.1);
+    border: 1px solid rgba(0,229,255,0.3);
+    color: var(--secondary-color);
+}
+
+.group-card .type-card-badge {
+    background: rgba(0,255,157,0.1);
+    border: 1px solid rgba(0,255,157,0.3);
+    color: var(--accent-color);
+}
+
+.type-footer {
+    font-size: 0.68rem;
+    color: #444;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* =============================================
+   LOGIN SCREEN — NEW ELEMENTS
+   ============================================= */
+
+.back-btn-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+}
+
+.back-btn {
+    background: transparent;
+    border: 1px solid var(--glass-border);
+    color: #666;
+    padding: 6px 14px;
+    font-size: 0.72rem;
+    letter-spacing: 1px;
+    border-radius: 8px;
+    box-shadow: none;
+}
+
+.back-btn:hover {
+    color: var(--secondary-color);
+    border-color: var(--secondary-color);
+    transform: none;
+    box-shadow: none;
+}
+
+.chat-mode-badge {
+    display: inline-block;
+    font-size: 0.68rem;
+    letter-spacing: 2px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-weight: 800;
+}
+
+.chat-mode-badge.p2p {
+    background: rgba(0,229,255,0.1);
+    border: 1px solid rgba(0,229,255,0.3);
+    color: var(--secondary-color);
+}
+
+.chat-mode-badge.group {
+    background: rgba(0,255,157,0.1);
+    border: 1px solid rgba(0,255,157,0.3);
+    color: var(--accent-color);
+}
+
+/* Name input group */
+.name-input-group {
+    margin-bottom: 1.5rem;
+    text-align: left;
+}
+
+.field-label {
+    display: block;
+    font-size: 0.65rem;
+    color: #555;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+#name-input {
+    width: 100%;
+    color: var(--accent-color);
+    border-color: rgba(0,255,157,0.2);
+}
+
+#name-input:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 20px rgba(0, 255, 157, 0.2), inset 0 0 10px rgba(0, 255, 157, 0.1);
+}
+
+/* =============================================
+   HAMBURGER BUTTON
+   ============================================= */
+
+.hamburger-btn {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    width: 40px;
+    height: 40px;
+    padding: 8px;
+    background: rgba(0,229,255,0.06);
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    box-shadow: none;
+    flex-shrink: 0;
+    transition: all 0.25s ease;
+    cursor: pointer;
+}
+
+.hamburger-btn span {
+    display: block;
+    width: 100%;
+    height: 2px;
+    background: var(--secondary-color);
+    border-radius: 2px;
+    transition: all 0.25s ease;
+}
+
+.hamburger-btn:hover {
+    background: rgba(0,229,255,0.15);
+    border-color: var(--secondary-color);
+    box-shadow: 0 0 12px rgba(0,229,255,0.25);
+    transform: none;
+}
+
+.hamburger-btn:hover span {
+    box-shadow: 0 0 6px var(--secondary-color);
+}
+
+/* =============================================
+   PARTICIPANTS SIDEBAR
+   ============================================= */
+
+.participants-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 260px;
+    height: 100%;
+    background: rgba(5, 8, 12, 0.96);
+    backdrop-filter: blur(24px);
+    border-right: 1px solid var(--glass-border);
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 4px 0 40px rgba(0,0,0,0.6);
+}
+
+.participants-panel.open {
+    transform: translateX(0);
+}
+
+.participants-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.25rem 1.25rem 1rem;
+    border-bottom: 1px solid var(--glass-border);
+    font-size: 0.75rem;
+    letter-spacing: 2px;
+    color: var(--secondary-color);
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+.close-panel-btn {
+    background: transparent;
+    border: none;
+    color: #555;
+    padding: 4px 8px;
+    font-size: 1rem;
+    box-shadow: none;
+    border-radius: 6px;
+    line-height: 1;
+    transition: color 0.2s;
+}
+
+.close-panel-btn:hover {
+    color: var(--danger-color);
+    background: rgba(255,42,109,0.1);
+    transform: none;
+    box-shadow: none;
+}
+
+.participants-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem 0;
+}
+
+.participant-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 1.25rem;
+    transition: background 0.2s;
+    border-radius: 0;
+}
+
+.participant-item:hover {
+    background: rgba(0,229,255,0.05);
+}
+
+.participant-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-color);
+    box-shadow: 0 0 8px var(--accent-color);
+    flex-shrink: 0;
+    animation: pulseGreen 2s infinite;
+}
+
+.participant-name {
+    font-size: 0.82rem;
+    color: var(--text-color);
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.participant-name em {
+    font-style: normal;
+    color: #555;
+    font-size: 0.72rem;
+}
+
+.participants-panel-footer {
+    padding: 1rem 1.25rem;
+    border-top: 1px solid var(--glass-border);
+    font-size: 0.65rem;
+    letter-spacing: 2px;
+    color: #444;
+    text-transform: uppercase;
+}
+
+.panel-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 1999;
+    backdrop-filter: blur(2px);
+}
+
+/* =============================================
+   SESSION SEAL
+   ============================================= */
+
+.session-seal-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 12px;
+    border: 1px solid rgba(0,255,157,0.25);
+    border-radius: 10px;
+    background: rgba(0,255,157,0.04);
+    cursor: help;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+.session-seal-container:hover {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 14px rgba(0,255,157,0.2);
+}
+
+.session-seal-label {
+    font-size: 0.55rem;
+    letter-spacing: 2px;
+    color: #555;
+    text-transform: uppercase;
+}
+
+.session-seal {
+    font-size: 1.3rem;
+    letter-spacing: 2px;
+    line-height: 1;
+}
+
+.session-seal-container.seal-pulse {
+    animation: sealAppear 2s ease;
+}
+
+.session-seal-container.seal-mismatch {
+    border-color: var(--danger-color) !important;
+    background: rgba(255,42,109,0.08) !important;
+    box-shadow: 0 0 20px rgba(255,42,109,0.4) !important;
+    animation: mismatchPulse 0.5s ease infinite alternate !important;
+}
+
+@keyframes sealAppear {
+    0%   { transform: scale(1.2); box-shadow: 0 0 30px rgba(0,255,157,0.5); }
+    100% { transform: scale(1);   box-shadow: none; }
+}
+
+@keyframes mismatchPulse {
+    from { box-shadow: 0 0 10px rgba(255,42,109,0.4); }
+    to   { box-shadow: 0 0 30px rgba(255,42,109,0.8); }
+}
+
+/* =============================================
+   GROUP MESSAGE — SENDER NAME LABEL
+   ============================================= */
+
+.message-sender-name {
+    font-size: 0.62rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--secondary-color);
+    opacity: 0.7;
+    margin-bottom: 3px;
+    font-weight: 700;
+}
+
+.message.peer .message-sender-name {
+    color: var(--secondary-color);
+}
+
+/* =============================================
+   RESPONSIVE OVERRIDES FOR NEW ELEMENTS
+   ============================================= */
+
+@media (max-width: 768px) {
+    /* Type selection */
+    .type-cards {
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        margin: 1.5rem 0;
+    }
+    .type-card {
+        max-width: 100%;
+        width: 100%;
+        padding: 1.75rem 1.25rem;
+        flex-direction: row;
+        text-align: left;
+        gap: 16px;
+    }
+    .type-card-icon { font-size: 2.5rem; flex-shrink: 0; }
+    .type-card-title { font-size: 0.95rem; }
+    .type-card-desc { font-size: 0.68rem; }
+    .type-card-badge { margin-top: 0; }
+    .type-select-container { padding: 2rem 1rem; }
+
+    /* Participants panel */
+    .participants-panel { width: 80vw; max-width: 280px; }
+
+    /* Session seal */
+    .session-seal { font-size: 1.1rem; }
+    .session-seal-container { padding: 4px 8px; }
+
+    /* Hamburger in mobile header */
+    .hamburger-btn { width: 36px; height: 36px; gap: 4px; }
+}
+
+@media (max-width: 420px) {
+    .type-card {
+        padding: 1.25rem 1rem;
+        gap: 12px;
+    }
+    .type-card-icon { font-size: 2rem; }
+}
