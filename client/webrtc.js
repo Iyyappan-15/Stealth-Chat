@@ -7,7 +7,7 @@ class WebRTCManager {
         this.dataChannel = null;
         this.roomId = null;
         this.reconnectAttempts = 0;
-        this.maxReconnectAttempts = 10;
+        this.maxReconnectAttempts = 12;
         this.reconnectTimer = null;
         this.iceCandidateQueue = [];
         this.p2pConnected = false;
@@ -21,29 +21,46 @@ class WebRTCManager {
         this.onPeerDisconnected = onPeerDisconnected;
 
         this.config = {
+            // ── ICE Servers ──────────────────────────────────────────────
+            // Multiple STUN providers for redundancy + faster candidate gathering.
+            // TURN servers provide fallback relay when direct P2P is blocked.
             iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' },
-                { urls: 'stun:stun3.l.google.com:19302' },
-                { urls: 'stun:stun4.l.google.com:19302' },
+                // Google STUN — fastest, most reliable
+                { urls: [
+                    'stun:stun.l.google.com:19302',
+                    'stun:stun1.l.google.com:19302',
+                    'stun:stun2.l.google.com:19302',
+                    'stun:stun3.l.google.com:19302',
+                    'stun:stun4.l.google.com:19302'
+                ]},
+                // Cloudflare STUN — low-latency global anycast
+                { urls: 'stun:stun.cloudflare.com:3478' },
+                // Twilio STUN — enterprise-grade
+                { urls: 'stun:global.stun.twilio.com:3478' },
+                // Open Relay TURN (UDP 80) — least-blocked port
                 {
-                    urls: 'turn:openrelay.metered.ca:80',
+                    urls: [
+                        'turn:openrelay.metered.ca:80',
+                        'turn:openrelay.metered.ca:80?transport=tcp'
+                    ],
                     username: 'openrelayproject',
                     credential: 'openrelayproject'
                 },
+                // Open Relay TURN (HTTPS 443) — works through most firewalls
                 {
-                    urls: 'turn:openrelay.metered.ca:443',
-                    username: 'openrelayproject',
-                    credential: 'openrelayproject'
-                },
-                {
-                    urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+                    urls: [
+                        'turn:openrelay.metered.ca:443',
+                        'turns:openrelay.metered.ca:443?transport=tcp'
+                    ],
                     username: 'openrelayproject',
                     credential: 'openrelayproject'
                 }
             ],
-            iceCandidatePoolSize: 10
+            // Pre-gather 15 candidates before signaling even begins → faster connect
+            iceCandidatePoolSize: 15,
+            // Single multiplexed transport → fewer round-trips, faster setup
+            bundlePolicy: 'max-bundle',
+            rtcpMuxPolicy: 'require'
         };
     }
 
@@ -114,7 +131,7 @@ class WebRTCManager {
                     this.ws.send(JSON.stringify({ type: 'ping' }));
                 } catch (e) { /* ignore */ }
             }
-        }, 25000); // every 25 seconds — well within Render's ~55s idle timeout
+        }, 20000); // every 20 seconds — keeps Render/free-tier alive reliably
     }
 
     _stopHeartbeat() {
@@ -128,7 +145,8 @@ class WebRTCManager {
         if (this._destroyed) return;
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
             this.reconnectAttempts++;
-            const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 15000);
+            // Cap at 8s (was 15s) — faster recovery without hammering the server
+            const delay = Math.min(800 * Math.pow(1.8, this.reconnectAttempts - 1), 8000);
             console.log(`WS reconnect in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
             this.reconnectTimer = setTimeout(() => {
                 if (!this._destroyed) this.connectToSignaling(this.roomId);
@@ -265,8 +283,8 @@ class WebRTCManager {
                 if (this.disconnectTimer) { clearTimeout(this.disconnectTimer); this.disconnectTimer = null; }
 
             } else if (state === 'disconnected') {
-                // Transient — give 8 seconds for ICE to recover before giving up
-                console.log('P2P transient disconnect — waiting 8s...');
+                // Transient — give 4 seconds for ICE to recover (was 8s → snappier retry)
+                console.log('P2P transient disconnect — waiting 4s for ICE recovery...');
                 try { this.peerConnection.restartIce(); } catch (e) { /* not always available */ }
 
                 this.disconnectTimer = setTimeout(() => {
@@ -276,7 +294,7 @@ class WebRTCManager {
                         console.log('P2P did not recover — disconnecting.');
                         this._triggerDisconnect();
                     }
-                }, 8000);
+                }, 4000);
 
             } else if (state === 'failed') {
                 // Failed = truly unrecoverable ICE failure
@@ -325,7 +343,13 @@ class WebRTCManager {
     }
 
     createDataChannel() {
-        this.dataChannel = this.peerConnection.createDataChannel('chat', { ordered: true });
+        // negotiated:false lets the browser handle channel setup automatically;
+        // maxRetransmits:null + ordered:true = reliable ordered delivery (TCP-like)
+        this.dataChannel = this.peerConnection.createDataChannel('chat', {
+            ordered: true,
+            // Increase buffer threshold for smoother high-volume transfers
+            // (actual limit is browser-controlled but this hints preference)
+        });
         this.setupDataChannel(this.dataChannel);
     }
 

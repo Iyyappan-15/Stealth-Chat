@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
     <title>Stealth Chat - Secure P2P & Group Messaging</title>
+    <link rel="icon" type="image/png" href="logo.png">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -29,7 +30,10 @@
     ═══════════════════════════════════════════════════ -->
     <div id="type-select-screen" class="screen">
         <div class="type-select-container">
-            <h1>🕵️ STEALTH</h1>
+            <div class="brand-header">
+                <img src="logo.png" alt="Stealth Chat Logo" class="brand-logo" id="brand-logo-main">
+                <h1>STEALTH</h1>
+            </div>
             <p class="subtitle">Choose Your Communication Protocol</p>
 
             <div class="type-cards">
@@ -62,7 +66,10 @@
                 <span id="chat-mode-badge" class="chat-mode-badge">P2P</span>
             </div>
 
-            <h1>🕵️ STEALTH</h1>
+            <div class="brand-header">
+                <img src="logo.png" alt="Stealth Chat Logo" class="brand-logo brand-logo-sm">
+                <h1>STEALTH</h1>
+            </div>
             <p class="subtitle" id="login-subtitle">Military-Grade | P2P | ZERO STORAGE</p>
 
             <!-- Display Name Input (new) -->
@@ -132,7 +139,10 @@
             </button>
 
             <div class="header-info">
-                <div id="room-display">CHANNEL: ...</div>
+                <div class="header-brand">
+                    <img src="logo.png" alt="" class="header-logo" aria-hidden="true">
+                    <div id="room-display">CHANNEL: ...</div>
+                </div>
                 <div class="status-indicator">
                     <span id="connection-status" class="disconnected">● DISCONNECTED</span>
                     <span id="encryption-status" class="hidden">| 🔒 AES-256 ACTIVE</span>

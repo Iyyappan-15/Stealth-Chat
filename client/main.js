@@ -272,8 +272,17 @@ document.addEventListener('DOMContentLoaded', () => {
         return url;
     }
 
+    // ── Status helper: show amber 'connecting' spinner ────────────────────────
+    function setStatusConnecting(label) {
+        connectionStatus.innerHTML =
+            `<span class="spin-ring"></span>${label || 'CONNECTING...'}`;
+        connectionStatus.classList.remove('connected', 'disconnected');
+        connectionStatus.classList.add('connecting');
+    }
+
     function initP2PNetworking() {
         const signalingUrl = getSignalingUrl();
+        setStatusConnecting('AWAITING PEER...');
 
         webrtcManager = new window.WebRTCManager(
             signalingUrl,
@@ -288,8 +297,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function onP2PPeerConnected() {
-        connectionStatus.textContent = "● PEER CONNECTED";
-        connectionStatus.classList.remove('disconnected');
+        connectionStatus.innerHTML = '● PEER CONNECTED';
+        connectionStatus.classList.remove('disconnected', 'connecting');
         connectionStatus.classList.add('connected');
 
         showSystemAlert("INITIATING SECURE HANDSHAKE...");
@@ -303,11 +312,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function onP2PPeerDisconnected() {
-        connectionStatus.textContent = "● PEER DISCONNECTED";
-        connectionStatus.classList.remove('connected');
+        connectionStatus.innerHTML = '● PEER DISCONNECTED';
+        connectionStatus.classList.remove('connected', 'connecting');
         connectionStatus.classList.add('disconnected');
         encryptionStatus.classList.add('hidden');
-        showSystemAlert("⚠ PEER CONNECTION LOST");
+        showSystemAlert("⚠ PEER CONNECTION LOST — RETRYING...");
+        // Show connecting state after a moment (WebRTC will attempt re-pairing)
+        setTimeout(() => {
+            if (!webrtcManager || !webrtcManager.p2pConnected) {
+                setStatusConnecting('AWAITING PEER...');
+            }
+        }, 2000);
     }
 
     async function onP2PMessageReceived(rawMessage) {
@@ -381,6 +396,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function initGroupNetworking() {
         const signalingUrl = getSignalingUrl();
+        setStatusConnecting('JOINING GROUP...');
 
         const progressBar   = document.getElementById('media-progress-bar');
         const progressFill  = document.getElementById('media-progress-fill');
@@ -452,8 +468,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function onGroupReady(name) {
-        connectionStatus.textContent = "● GROUP CONNECTED";
-        connectionStatus.classList.remove('disconnected');
+        connectionStatus.innerHTML = '● GROUP CONNECTED';
+        connectionStatus.classList.remove('disconnected', 'connecting');
         connectionStatus.classList.add('connected');
         encryptionStatus.classList.remove('hidden');
         showSystemAlert(`✅ GROUP CHANNEL SECURED | ${name}`);
@@ -483,11 +499,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function onGroupDisconnected() {
-        connectionStatus.textContent = "● DISCONNECTED";
-        connectionStatus.classList.remove('connected');
+        connectionStatus.innerHTML = '● DISCONNECTED';
+        connectionStatus.classList.remove('connected', 'connecting');
         connectionStatus.classList.add('disconnected');
         encryptionStatus.classList.add('hidden');
         showSystemAlert("⚠ GROUP CONNECTION LOST — RECONNECTING...");
+        // Transition back to connecting state after a moment
+        setTimeout(() => setStatusConnecting('RECONNECTING...'), 1500);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
