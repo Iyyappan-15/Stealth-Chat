@@ -85,11 +85,57 @@ body::before {
 }
 
 h1 {
-    margin-bottom: 1rem;
+    margin-bottom: 0;
     color: var(--secondary-color);
     text-shadow: var(--secondary-glow);
     font-size: 3rem;
     letter-spacing: -2px;
+}
+
+/* ── Brand Header (logo + title) ── */
+.brand-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    margin-bottom: 1rem;
+}
+
+.brand-logo {
+    width: 72px;
+    height: 72px;
+    object-fit: contain;
+    border-radius: 16px;
+    flex-shrink: 0;
+    animation: logoGlow 3s ease-in-out infinite alternate;
+}
+
+.brand-logo-sm {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+}
+
+@keyframes logoGlow {
+    0%   { filter: drop-shadow(0 0 6px rgba(255, 184, 0, 0.5))  drop-shadow(0 0 14px rgba(0, 229, 255, 0.4)); }
+    100% { filter: drop-shadow(0 0 18px rgba(255, 184, 0, 0.9)) drop-shadow(0 0 32px rgba(0, 229, 255, 0.7)); }
+}
+
+/* ── Chat header inline logo ── */
+.header-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.header-logo {
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
+    border-radius: 8px;
+    flex-shrink: 0;
+    filter: drop-shadow(0 0 6px rgba(255, 184, 0, 0.6)) drop-shadow(0 0 10px rgba(0, 229, 255, 0.3));
+    animation: logoGlow 3s ease-in-out infinite alternate;
 }
 
 .subtitle {
@@ -306,6 +352,36 @@ header {
 .disconnected {
     color: var(--danger-color);
     text-shadow: var(--danger-glow);
+}
+
+/* ── Connecting (waiting for peer) — amber spinner ── */
+.connecting {
+    color: #ffb800;
+    text-shadow: 0 0 12px rgba(255, 184, 0, 0.7);
+    animation: pulseAmber 1.2s ease-in-out infinite;
+}
+
+@keyframes pulseAmber {
+    0%, 100% { opacity: 0.5; text-shadow: 0 0 6px rgba(255, 184, 0, 0.4); }
+    50%       { opacity: 1;   text-shadow: 0 0 18px rgba(255, 184, 0, 0.9); }
+}
+
+/* Tiny spinning ring shown while connecting */
+.spin-ring {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border: 2px solid rgba(255, 184, 0, 0.25);
+    border-top-color: #ffb800;
+    border-radius: 50%;
+    animation: spinRing 0.8s linear infinite;
+    vertical-align: middle;
+    margin-right: 4px;
+    flex-shrink: 0;
+}
+
+@keyframes spinRing {
+    to { transform: rotate(360deg); }
 }
 
 .session-expiry {
@@ -626,6 +702,16 @@ body.hard-obscure .input-area {
         font-size: 2.2rem;
     }
 
+    .brand-logo {
+        width: 56px;
+        height: 56px;
+    }
+
+    .brand-logo-sm {
+        width: 42px;
+        height: 42px;
+    }
+
     header {
         padding: 0.75rem 1.25rem;
         flex-wrap: wrap;
@@ -682,7 +768,22 @@ body.hard-obscure .input-area {
     h1 {
         font-size: 1.9rem;
         letter-spacing: -1px;
-        margin-bottom: 0.6rem;
+        margin-bottom: 0;
+    }
+
+    .brand-header {
+        gap: 12px;
+        margin-bottom: 0.75rem;
+    }
+
+    .brand-logo {
+        width: 44px;
+        height: 44px;
+    }
+
+    .brand-logo-sm {
+        width: 36px;
+        height: 36px;
     }
 
     .subtitle {
