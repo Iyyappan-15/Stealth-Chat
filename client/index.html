@@ -149,10 +149,10 @@
                 </div>
             </div>
 
-            <!-- Session Seal (tamper-evident 4-emoji fingerprint) -->
-            <div id="session-seal-container" class="session-seal-container hidden" title="Tamper-Evident Session Seal — if this changes mid-session, a MITM attack may be occurring">
+            <!-- Session Seal (tamper-evident emoji indicator) -->
+            <div id="session-seal-container" class="session-seal-container hidden" title="Session Seal — 🦭 means secure. If it changes to ⚠️ mid-session, a MITM attack may be occurring.">
                 <div class="session-seal-label">SEAL</div>
-                <div id="session-seal" class="session-seal">????</div>
+                <div id="session-seal" class="session-seal">🦭</div>
             </div>
 
             <div class="session-timer">
@@ -228,10 +228,10 @@
     <!-- Session Seal Popup Modal -->
     <div id="seal-popup" class="seal-popup hidden">
         <div class="seal-popup-box">
-            <div class="seal-popup-label">🔏 SESSION SEAL ESTABLISHED</div>
+            <div class="seal-popup-label">🦭 SESSION SEAL ESTABLISHED</div>
             <div id="seal-popup-emoji" class="seal-popup-emoji">????</div>
-            <p class="seal-popup-desc">Both participants must see this <strong>exact same seal</strong>.<br>If your peer's seal differs — a man-in-the-middle attack is occurring.</p>
-            <button id="seal-popup-close" class="seal-popup-close">✓ SEAL VERIFIED</button>
+            <p class="seal-popup-desc">Both participants must see this <strong>exact same code</strong>.<br>Compare it verbally with your peer.<br><br>While the session is active, watch the <strong>🦭 seal in the header</strong>.<br>If it changes to <strong>⚠️</strong> — disconnect immediately.</p>
+            <button id="seal-popup-close" class="seal-popup-close">✓ VERIFIED &amp; SECURED</button>
         </div>
     </div>
 

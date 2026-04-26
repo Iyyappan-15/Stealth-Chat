@@ -111,7 +111,7 @@ class MediaShareManager {
             const blob = new Blob([arrayBuffer], { type: file.type });
             const blobUrl = URL.createObjectURL(blob);
             const destructSecs = this.getDestructTime();
-            this.appendMediaMessage(blobUrl, file.type, 'me', destructSecs);
+            this.appendMediaMessage(blobUrl, file.type, 'me', destructSecs, file.name);
             // Revoke after display + a little buffer
             setTimeout(() => URL.revokeObjectURL(blobUrl), (destructSecs + 2) * 1000);
 
@@ -176,7 +176,7 @@ class MediaShareManager {
             const blobUrl = URL.createObjectURL(blob);
 
             const destructSecs = this.getDestructTime();
-            this.appendMediaMessage(blobUrl, meta.mime, 'peer', destructSecs);
+            this.appendMediaMessage(blobUrl, meta.mime, 'peer', destructSecs, meta.name);
 
             // Revoke URL after display
             setTimeout(() => {
