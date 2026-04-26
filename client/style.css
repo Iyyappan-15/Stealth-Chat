@@ -667,12 +667,27 @@ body.content-obscured .screen {
     pointer-events: none;
 }
 
+/* ── RAF Instant Blackout Layer (anti-screenshot) ── */
+#__stealth-blackout {
+    position: fixed;
+    inset: 0;
+    background: #000 !important;
+    z-index: 2147483647 !important;
+    display: none;        /* JS controls this inline for synchronous reflow */
+    pointer-events: none;
+}
+
+/* Class-based fallback (used by CSS injection from screenshotDetector) */
+body.stealth-blackout #__stealth-blackout {
+    display: block !important;
+}
+
 /* Aggressive Protection */
 .security-blindfold {
     position: fixed;
     inset: 0;
     background: #000 !important;
-    z-index: 2147483647 !important;
+    z-index: 2147483646 !important;
     display: none;
 }
 
@@ -685,6 +700,21 @@ body.hard-obscure header,
 body.hard-obscure .input-area {
     visibility: hidden !important;
     opacity: 0 !important;
+}
+
+/* Prevent WebKit print rendering from capturing content */
+@media print {
+    body * {
+        display: none !important;
+    }
+    body::after {
+        content: "SECURE SESSION — PRINTING DISABLED" !important;
+        display: block !important;
+        font-size: 2rem !important;
+        text-align: center !important;
+        margin-top: 40vh !important;
+        color: #000 !important;
+    }
 }
 
 /* =============================================
@@ -807,18 +837,18 @@ body.hard-obscure .input-area {
         font-size: 0.88rem;
     }
 
-    /* Chat Header — stacked two-row layout */
+    /* Chat Header — stacked layout */
     header {
         padding: 0.6rem 1rem;
         display: grid;
-        grid-template-columns: 1fr auto;
-        grid-template-rows: auto auto;
+        grid-template-columns: auto 1fr auto;
+        grid-template-rows: auto auto auto auto;
         gap: 4px 8px;
         align-items: center;
     }
 
     .header-info {
-        grid-column: 1;
+        grid-column: 2;
         grid-row: 1;
     }
 
@@ -837,12 +867,29 @@ body.hard-obscure .input-area {
     }
 
     .session-timer {
-        grid-column: 2;
+        grid-column: 3;
         grid-row: 1;
         font-size: 0.6rem;
         order: unset;
         width: auto;
         white-space: nowrap;
+    }
+
+    /* Seal — row 1, spans both columns in the centre on mobile */
+    .session-seal-container {
+        grid-column: 1 / -1;
+        grid-row: 3;
+        justify-self: center;
+        padding: 3px 10px;
+        font-size: 0.95rem;
+    }
+
+    .session-seal {
+        font-size: 1.2rem;
+    }
+
+    .session-seal-label {
+        font-size: 0.5rem;
     }
 
     #session-timer-display {
@@ -851,7 +898,7 @@ body.hard-obscure .input-area {
 
     .settings-group {
         grid-column: 1 / -1;
-        grid-row: 2;
+        grid-row: 4;
         display: flex;
         gap: 6px;
         align-items: center;
@@ -1649,9 +1696,9 @@ body.hard-obscure .input-area {
 }
 
 .session-seal {
-    font-size: 1.3rem;
-    letter-spacing: 2px;
+    font-size: 1.6rem;
     line-height: 1;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .session-seal-container.seal-pulse {
@@ -1663,6 +1710,17 @@ body.hard-obscure .input-area {
     background: rgba(255,42,109,0.08) !important;
     box-shadow: 0 0 20px rgba(255,42,109,0.4) !important;
     animation: mismatchPulse 0.5s ease infinite alternate !important;
+}
+
+/* The ⚠️ warning spin-in when MITM detected */
+.session-seal-container.seal-mismatch .session-seal {
+    animation: warningFlip 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes warningFlip {
+    0%   { transform: scale(0) rotate(-180deg); opacity: 0; }
+    60%  { transform: scale(1.4) rotate(10deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
 }
 
 @keyframes sealAppear {
@@ -1827,3 +1885,183 @@ body.hard-obscure .input-area {
         letter-spacing: 6px;
     }
 }
+
+/* =============================================
+   SECURE FILE CARD — View / Download
+   ============================================= */
+
+.message.media-message {
+    padding: 0;
+    background: transparent;
+    border: none;
+    max-width: 75%;
+}
+
+.secure-file-card {
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(0, 229, 255, 0.2);
+    border-radius: 14px;
+    padding: 14px 16px 10px;
+    backdrop-filter: blur(12px);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    box-shadow: 0 0 20px rgba(0, 229, 255, 0.06), inset 0 0 12px rgba(0, 229, 255, 0.03);
+    transition: border-color 0.25s ease;
+}
+
+.secure-file-card:hover {
+    border-color: rgba(0, 229, 255, 0.4);
+}
+
+/* Top row: icon + info */
+.secure-file-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.secure-file-icon {
+    font-size: 2rem;
+    line-height: 1;
+    flex-shrink: 0;
+    filter: drop-shadow(0 0 8px rgba(0, 229, 255, 0.4));
+}
+
+.secure-file-info {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.secure-file-name {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--secondary-color);
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.secure-file-meta {
+    font-size: 0.62rem;
+    color: #555;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+/* Inline preview (shown on VIEW click) */
+.media-preview-inline {
+    width: 100%;
+    max-height: 280px;
+    border-radius: 10px;
+    object-fit: contain;
+    background: rgba(0, 0, 0, 0.4);
+    display: block;
+}
+
+audio.media-preview-inline {
+    width: 100%;
+    max-height: unset;
+    height: 40px;
+}
+
+/* Button row */
+.secure-file-btns {
+    display: flex;
+    gap: 8px;
+}
+
+.secure-file-btn {
+    flex: 1;
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: all 0.22s ease;
+    cursor: pointer;
+}
+
+.secure-file-btn.view {
+    background: rgba(0, 229, 255, 0.1);
+    border: 1px solid rgba(0, 229, 255, 0.35);
+    color: var(--secondary-color);
+    box-shadow: none;
+}
+
+.secure-file-btn.view:hover {
+    background: rgba(0, 229, 255, 0.2);
+    border-color: var(--secondary-color);
+    box-shadow: 0 0 12px rgba(0, 229, 255, 0.3);
+    transform: none;
+}
+
+.secure-file-btn.save {
+    background: rgba(0, 255, 157, 0.08);
+    border: 1px solid rgba(0, 255, 157, 0.3);
+    color: var(--accent-color);
+    box-shadow: none;
+}
+
+.secure-file-btn.save:hover {
+    background: rgba(0, 255, 157, 0.18);
+    border-color: var(--accent-color);
+    box-shadow: 0 0 12px rgba(0, 255, 157, 0.3);
+    transform: none;
+}
+
+/* Timer bar */
+.secure-file-timer-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 0 2px;
+    margin-top: 4px;
+}
+
+.secure-file-timer-bar {
+    height: 3px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.secure-file-timer-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--secondary-color), var(--accent-color));
+    border-radius: 3px;
+    transition: width 1s linear, background 0.3s ease;
+}
+
+.secure-file-timer-lbl {
+    font-size: 0.58rem;
+    color: #444;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    text-align: right;
+    transition: color 0.3s ease;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+    .message.media-message {
+        max-width: 88%;
+    }
+    .secure-file-card {
+        padding: 12px 12px 8px;
+    }
+    .secure-file-icon {
+        font-size: 1.6rem;
+    }
+    .secure-file-name {
+        font-size: 0.76rem;
+    }
+    .media-preview-inline {
+        max-height: 200px;
+    }
+}
+

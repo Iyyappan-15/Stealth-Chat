@@ -234,8 +234,11 @@ document.addEventListener('DOMContentLoaded', () => {
             screenshotDetector = new window.ScreenshotDetector((reason) => {
                 handleSecurityBreach(reason);
             });
+            // onFocusLost: soft blackout is handled inside the detector silently.
+            // We only do additional work here if needed (currently nothing extra).
             screenshotDetector.setOnFocusLost(() => {
-                document.body.classList.add('content-obscured');
+                // Soft blackout — screen goes black but no alert is shown.
+                // content-obscured is NOT set here so the breach overlay doesn't appear.
             });
             screenshotDetector.setOnPanicTriggered(() => {
                 triggerPanicMode();
@@ -556,29 +559,32 @@ document.addEventListener('DOMContentLoaded', () => {
     function showSessionSeal(seal) {
         currentSeal = seal;
 
-        // Update header mini-display
-        sessionSealEl.textContent = seal;
-        sessionSealContainer.classList.remove('hidden');
+        // Header mini-display: always show the seal emoji (🦭 = secure)
+        sessionSealEl.textContent = '🦭';
+        sessionSealContainer.classList.remove('hidden', 'seal-mismatch');
         sessionSealContainer.classList.add('seal-pulse');
         setTimeout(() => sessionSealContainer.classList.remove('seal-pulse'), 2000);
 
-        // Show prominent popup modal
+        // Popup shows the full cryptographic emoji fingerprint so users can verify
         sealPopupEmoji.textContent = seal;
         sealPopup.classList.remove('hidden');
 
-        showSystemAlert(`🔏 SESSION SEAL: ${seal} — Compare with your peer!`);
+        showSystemAlert(`🦭 SESSION SEAL ESTABLISHED — Compare the code with your peer!`);
     }
 
     function verifySeal(peerSeal) {
         if (!currentSeal) return;
         if (peerSeal !== currentSeal) {
-            // MITM DETECTED
-            sessionSealEl.textContent = '⚠️⚠️⚠️⚠️';
+            // MITM DETECTED — Change seal emoji to warning sign
+            sessionSealEl.textContent = '⚠️';
             sessionSealContainer.classList.add('seal-mismatch');
-            showSystemAlert(`🚨 SEAL MISMATCH — POSSIBLE MITM ATTACK! YOUR SEAL: ${currentSeal} | PEER: ${peerSeal}`);
+            showSystemAlert(`🚨 SEAL MISMATCH — POSSIBLE MAN-IN-THE-MIDDLE ATTACK DETECTED!`);
             triggerSecurityOverlay("SESSION SEAL MISMATCH — POSSIBLE MAN-IN-THE-MIDDLE ATTACK");
         } else {
-            showSystemAlert(`✅ SEAL VERIFIED: ${peerSeal}`);
+            // Seals match — keep 🦭 and confirm
+            sessionSealEl.textContent = '🦭';
+            sessionSealContainer.classList.remove('seal-mismatch');
+            showSystemAlert(`✅ SEAL VERIFIED — Connection is secure.`);
         }
     }
 
@@ -790,45 +796,127 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 1000);
     }
 
-    function appendMediaMessage(blobUrl, mimeType, sender, destructSecs) {
+    function appendMediaMessage(blobUrl, mimeType, sender, destructSecs, fileName) {
         const msgDiv = document.createElement('div');
         msgDiv.classList.add('message', sender, 'media-message');
 
-        let mediaEl;
-        if (mimeType.startsWith('video/')) {
-            mediaEl = document.createElement('video');
-            mediaEl.controls = true;
-            mediaEl.playsInline = true;
-            mediaEl.muted = false;
-        } else {
-            mediaEl = document.createElement('img');
-            mediaEl.alt = '🔒 Encrypted Media';
+        const isVideo = mimeType && mimeType.startsWith('video/');
+        const isAudio = mimeType && mimeType.startsWith('audio/');
+        const isImage = mimeType && mimeType.startsWith('image/');
+        const isPDF   = mimeType === 'application/pdf';
+        const typeIcon  = isVideo ? '🎬' : isAudio ? '🎵' : isImage ? '🖼️' : isPDF ? '📄' : '📎';
+        const typeLabel = isVideo ? 'VIDEO' : isAudio ? 'AUDIO' : isImage ? 'IMAGE' : isPDF ? 'PDF' : 'FILE';
+        const displayName = fileName || ('secure_' + typeLabel.toLowerCase());
+
+        // Inline preview element (hidden by default)
+        let previewEl = null;
+        if (isImage) {
+            previewEl = document.createElement('img');
+            previewEl.src = blobUrl;
+            previewEl.alt = 'Encrypted Image';
+            previewEl.className = 'media-preview-inline';
+            previewEl.style.display = 'none';
+        } else if (isVideo) {
+            previewEl = document.createElement('video');
+            previewEl.src = blobUrl;
+            previewEl.controls = true;
+            previewEl.playsInline = true;
+            previewEl.className = 'media-preview-inline';
+            previewEl.style.display = 'none';
+        } else if (isAudio) {
+            previewEl = document.createElement('audio');
+            previewEl.src = blobUrl;
+            previewEl.controls = true;
+            previewEl.className = 'media-preview-inline';
+            previewEl.style.display = 'none';
         }
-        mediaEl.src = blobUrl;
 
-        const label = document.createElement('div');
-        label.classList.add('media-label');
-        label.textContent = `🔒 ENCRYPTED FILE · ${destructSecs}s`;
+        // File card
+        const card = document.createElement('div');
+        card.className = 'secure-file-card';
 
-        const timerSpan = document.createElement('div');
-        timerSpan.classList.add('destruct-timer');
+        const cardTop = document.createElement('div');
+        cardTop.className = 'secure-file-top';
+        cardTop.innerHTML = `
+            <div class="secure-file-icon">${typeIcon}</div>
+            <div class="secure-file-info">
+                <div class="secure-file-name">${escapeHtml(displayName.length > 26 ? displayName.substring(0,23)+'...' : displayName)}</div>
+                <div class="secure-file-meta">🔒 AES-256-GCM &middot; ${typeLabel} &middot; In-Memory Only</div>
+            </div>`;
 
-        msgDiv.appendChild(mediaEl);
-        msgDiv.appendChild(label);
-        msgDiv.appendChild(timerSpan);
+        const btnRow = document.createElement('div');
+        btnRow.className = 'secure-file-btns';
+
+        // VIEW / HIDE button
+        const viewBtn = document.createElement('button');
+        viewBtn.className = 'secure-file-btn view';
+        viewBtn.textContent = '👁 VIEW';
+        let shown = false;
+        viewBtn.addEventListener('click', () => {
+            if (!previewEl) {
+                window.open(blobUrl, '_blank', 'noopener,noreferrer');
+                return;
+            }
+            shown = !shown;
+            previewEl.style.display = shown ? 'block' : 'none';
+            viewBtn.textContent = shown ? '🙈 HIDE' : '👁 VIEW';
+        });
+
+        // SAVE / DOWNLOAD button
+        const dlBtn = document.createElement('button');
+        dlBtn.className = 'secure-file-btn save';
+        dlBtn.textContent = '⬇ SAVE';
+        dlBtn.addEventListener('click', () => {
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = displayName;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        });
+
+        btnRow.appendChild(viewBtn);
+        btnRow.appendChild(dlBtn);
+        card.appendChild(cardTop);
+        if (previewEl) card.appendChild(previewEl);
+        card.appendChild(btnRow);
+
+        // Timer bar
+        const timerWrap = document.createElement('div');
+        timerWrap.className = 'secure-file-timer-wrap';
+        const timerBar = document.createElement('div');
+        timerBar.className = 'secure-file-timer-bar';
+        const timerFill = document.createElement('div');
+        timerFill.className = 'secure-file-timer-fill';
+        timerFill.style.width = '100%';
+        const timerLbl = document.createElement('div');
+        timerLbl.className = 'secure-file-timer-lbl';
+        timerLbl.textContent = 'AUTO-DESTRUCT: ' + destructSecs + 's';
+        timerBar.appendChild(timerFill);
+        timerWrap.appendChild(timerBar);
+        timerWrap.appendChild(timerLbl);
+
+        msgDiv.appendChild(card);
+        msgDiv.appendChild(timerWrap);
         messagesContainer.appendChild(msgDiv);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
         let timeLeft = destructSecs;
-        timerSpan.textContent = `${timeLeft}s`;
-        const interval = setInterval(() => {
+        const total = destructSecs;
+        const iv = setInterval(() => {
             timeLeft--;
-            timerSpan.textContent = `${timeLeft}s`;
-            label.textContent = `🔒 ENCRYPTED FILE · ${timeLeft}s`;
+            timerFill.style.width = Math.max(0, (timeLeft / total) * 100) + '%';
+            timerLbl.textContent = 'AUTO-DESTRUCT: ' + timeLeft + 's';
+            if (timeLeft <= 3) {
+                timerFill.style.background = 'var(--danger-color)';
+                timerLbl.style.color = 'var(--danger-color)';
+            }
             if (timeLeft <= 0) {
-                clearInterval(interval);
+                clearInterval(iv);
+                msgDiv.style.transition = 'opacity 0.5s ease';
                 msgDiv.style.opacity = '0';
-                setTimeout(() => msgDiv.remove(), 300);
+                setTimeout(() => { msgDiv.remove(); URL.revokeObjectURL(blobUrl); }, 500);
             }
         }, 1000);
     }
