@@ -420,7 +420,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Handle incoming files relayed through server
         groupManager.onFileReceived = (blobUrl, mimeType, fileName) => {
-            appendMediaMessage(blobUrl, mimeType, 'peer', autoDestructTime);
+            appendMediaMessage(blobUrl, mimeType, 'peer', autoDestructTime, fileName);
             setTimeout(() => URL.revokeObjectURL(blobUrl), (autoDestructTime + 2) * 1000);
         };
 
