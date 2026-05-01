@@ -243,12 +243,12 @@ class GroupChatManager {
             // Send END
             this._relaySend({ msgType: 'MEDIA_END' });
 
-            // Show own copy
+            // Show own copy (with filename)
             if (appendMediaMessage && getDestructTime) {
                 const blob = new Blob([arrayBuffer], { type: file.type });
                 const blobUrl = URL.createObjectURL(blob);
                 const secs = getDestructTime();
-                appendMediaMessage(blobUrl, file.type, 'me', secs);
+                appendMediaMessage(blobUrl, file.type, 'me', secs, file.name);
                 setTimeout(() => URL.revokeObjectURL(blobUrl), (secs + 2) * 1000);
             }
 
