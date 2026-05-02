@@ -488,10 +488,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function onGroupParticipantJoined(name, id) {
         showSystemAlert(`🟢 ${name} JOINED THE CHANNEL`);
+
+        // Flash a new random seal emoji to signal the group composition changed,
+        // then restore the active seal fingerprint after the pulse finishes.
+        if (sessionSealContainer && !sessionSealContainer.classList.contains('hidden')) {
+            const joinEmoji = _randomSealEmoji(_sealHeaderEmoji());
+            sessionSealEl.textContent = joinEmoji;
+            sessionSealContainer.classList.add('seal-pulse');
+            // After pulse animation (2s), restore the current seal's first emoji
+            setTimeout(() => {
+                sessionSealContainer.classList.remove('seal-pulse');
+                sessionSealEl.textContent = _sealHeaderEmoji();
+            }, 2000);
+        }
     }
 
     function onGroupParticipantLeft(name, id) {
         showSystemAlert(`🔴 ${name} LEFT THE CHANNEL`);
+
+        // Flash a different random emoji to signal someone departed.
+        if (sessionSealContainer && !sessionSealContainer.classList.contains('hidden')) {
+            const leaveEmoji = _randomSealEmoji(_sealHeaderEmoji());
+            sessionSealEl.textContent = leaveEmoji;
+            sessionSealContainer.classList.add('seal-pulse');
+            setTimeout(() => {
+                sessionSealContainer.classList.remove('seal-pulse');
+                sessionSealEl.textContent = _sealHeaderEmoji();
+            }, 2000);
+        }
     }
 
     function onGroupTyping(fromName, isTyping) {
@@ -556,11 +580,40 @@ document.addEventListener('DOMContentLoaded', () => {
     // SESSION SEAL
     // ─────────────────────────────────────────────────────────────────────────
 
+    // ── Shared emoji palette (mirrors the one in crypto.js — keeps visuals consistent) ──
+    const SEAL_EMOJI_PALETTE = [
+        "🐋","🦁","🐬","🦊","🐧","🦋","🐙","🦄",
+        "🌙","⭐","☀️","🌈","🌊","🔥","❄️","⚡",
+        "🎯","🎪","🎭","🎨","🎸","🎺","🎻","🥁",
+        "🍎","🍋","🍇","🍓","🥝","🍑","🍒","🫐",
+        "🏔️","🌋","🗻","🏝️","🌵","🌴","🍄","🌺",
+        "💎","🔮","🪄","🔭","🧬","⚗️","🧲","🔑",
+        "🚀","🛸","⛵","🚁","🛡️","⚔️","🗡️","🏹",
+        "🦅","🦉","🦚","🦜","🐲","🦈","🐺","🦝"
+    ];
+
+    /** Pick a pseudo-random emoji from the palette, optionally excluding one */
+    function _randomSealEmoji(exclude) {
+        let pool = SEAL_EMOJI_PALETTE;
+        if (exclude) pool = pool.filter(e => e !== exclude);
+        return pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    /** Derive the "active" header display emoji from the current seal string */
+    function _sealHeaderEmoji() {
+        if (!currentSeal) return '🦭';
+        // currentSeal is a 4-emoji string; display the first one as the header badge
+        // Use spread to handle multi-codepoint emoji correctly
+        const emojis = [...currentSeal];
+        // Grab the first grapheme cluster (may be 1–2 codepoints)
+        return emojis[0] || '🦭';
+    }
+
     function showSessionSeal(seal) {
         currentSeal = seal;
 
-        // Header mini-display: always show the seal emoji (🦭 = secure)
-        sessionSealEl.textContent = '🦭';
+        // Header mini-display: show the first emoji of the real cryptographic fingerprint
+        sessionSealEl.textContent = _sealHeaderEmoji();
         sessionSealContainer.classList.remove('hidden', 'seal-mismatch');
         sessionSealContainer.classList.add('seal-pulse');
         setTimeout(() => sessionSealContainer.classList.remove('seal-pulse'), 2000);
@@ -581,8 +634,8 @@ document.addEventListener('DOMContentLoaded', () => {
             showSystemAlert(`🚨 SEAL MISMATCH — POSSIBLE MAN-IN-THE-MIDDLE ATTACK DETECTED!`);
             triggerSecurityOverlay("SESSION SEAL MISMATCH — POSSIBLE MAN-IN-THE-MIDDLE ATTACK");
         } else {
-            // Seals match — keep 🦭 and confirm
-            sessionSealEl.textContent = '🦭';
+            // Seals match — restore real fingerprint emoji and confirm
+            sessionSealEl.textContent = _sealHeaderEmoji();
             sessionSealContainer.classList.remove('seal-mismatch');
             showSystemAlert(`✅ SEAL VERIFIED — Connection is secure.`);
         }
