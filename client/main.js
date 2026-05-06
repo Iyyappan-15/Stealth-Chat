@@ -79,7 +79,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let mediaCallManager   = null;
     let mediaShareManager  = null;
 
-    let currentSeal     = null;   // Stored seal for comparison (MITM detection)
+    let currentSeal          = null;  // Stored seal for comparison (MITM detection)
+    let groupSealSalt        = 0;     // Salt changes on every membership change
+    let groupParticipantCount = 0;    // Last known participant count
+    let groupSealReady       = false; // Whether initial group seal has been shown
     let autoDestructTime = 10;
     let sessionTimeLeft  = 600;
     let isDecoyActive    = false;
@@ -477,9 +480,9 @@ document.addEventListener('DOMContentLoaded', () => {
         encryptionStatus.classList.remove('hidden');
         showSystemAlert(`✅ GROUP CHANNEL SECURED | ${name}`);
 
-        // Derive and display group seal from the group session key
-        const seal = await cryptoManager.generateSessionSeal();
-        showSessionSeal(seal);
+        // Reset seal state — seal will be shown when participants-list arrives
+        groupSealReady = false;
+        groupParticipantCount = 0;
     }
 
     async function onGroupMessageReceived(text, fromName, fromId) {
@@ -488,34 +491,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function onGroupParticipantJoined(name, id) {
         showSystemAlert(`🟢 ${name} JOINED THE CHANNEL`);
-
-        // Flash a new random seal emoji to signal the group composition changed,
-        // then restore the active seal fingerprint after the pulse finishes.
-        if (sessionSealContainer && !sessionSealContainer.classList.contains('hidden')) {
-            const joinEmoji = _randomSealEmoji(_sealHeaderEmoji());
-            sessionSealEl.textContent = joinEmoji;
-            sessionSealContainer.classList.add('seal-pulse');
-            // After pulse animation (2s), restore the current seal's first emoji
-            setTimeout(() => {
-                sessionSealContainer.classList.remove('seal-pulse');
-                sessionSealEl.textContent = _sealHeaderEmoji();
-            }, 2000);
-        }
+        // Seal refresh is handled in updateParticipantsPanel when participants-list arrives
     }
 
     function onGroupParticipantLeft(name, id) {
         showSystemAlert(`🔴 ${name} LEFT THE CHANNEL`);
-
-        // Flash a different random emoji to signal someone departed.
-        if (sessionSealContainer && !sessionSealContainer.classList.contains('hidden')) {
-            const leaveEmoji = _randomSealEmoji(_sealHeaderEmoji());
-            sessionSealEl.textContent = leaveEmoji;
-            sessionSealContainer.classList.add('seal-pulse');
-            setTimeout(() => {
-                sessionSealContainer.classList.remove('seal-pulse');
-                sessionSealEl.textContent = _sealHeaderEmoji();
-            }, 2000);
-        }
+        // Seal refresh is handled in updateParticipantsPanel when participants-list arrives
     }
 
     function onGroupTyping(fromName, isTyping) {
@@ -552,7 +533,7 @@ document.addEventListener('DOMContentLoaded', () => {
         panelOverlay.classList.add('hidden');
     }
 
-    function updateParticipantsPanel(participants) {
+    async function updateParticipantsPanel(participants) {
         participantsList.innerHTML = '';
         participants.forEach(p => {
             const item = document.createElement('div');
@@ -566,7 +547,25 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         participantsCount.textContent = `${participants.length} ONLINE`;
 
-        // Also update for P2P (just show me + peer)
+        // Group seal: recompute whenever membership changes.
+        // All clients use participants.length as a shared deterministic salt,
+        // so every member (including a new joiner) derives the same new seal.
+        if (chatMode === 'group' && cryptoManager && cryptoManager.sessionKey) {
+            const newCount = participants.length;
+            if (!groupSealReady) {
+                // First participants-list after connecting — establish initial seal
+                groupSealSalt = newCount;
+                const seal = await cryptoManager.generateSessionSealWithSalt(String(groupSealSalt));
+                showSessionSeal(seal);
+                groupSealReady = true;
+            } else if (newCount !== groupParticipantCount) {
+                // Membership changed — refresh seal and show popup to everyone
+                groupSealSalt = newCount;
+                const seal = await cryptoManager.generateSessionSealWithSalt(String(groupSealSalt));
+                refreshGroupSeal(seal, newCount > groupParticipantCount);
+            }
+            groupParticipantCount = newCount;
+        }
     }
 
     function addP2PParticipants(peerName) {
@@ -623,6 +622,30 @@ document.addEventListener('DOMContentLoaded', () => {
         sealPopup.classList.remove('hidden');
 
         showSystemAlert(`🦭 SESSION SEAL ESTABLISHED — Compare the code with your peer!`);
+    }
+
+    /**
+     * Called when a group member joins or leaves mid-conversation.
+     * Regenerates the seal (using the new participant count as salt) and
+     * re-opens the popup so every user sees the updated fingerprint.
+     */
+    function refreshGroupSeal(seal, memberJoined) {
+        currentSeal = seal;
+
+        // Update header badge emoji
+        sessionSealEl.textContent = _sealHeaderEmoji();
+        sessionSealContainer.classList.remove('hidden', 'seal-mismatch');
+        sessionSealContainer.classList.add('seal-pulse');
+        setTimeout(() => sessionSealContainer.classList.remove('seal-pulse'), 2000);
+
+        // Re-open the seal popup so all present users verify the new fingerprint
+        sealPopupEmoji.textContent = seal;
+        sealPopup.classList.remove('hidden');
+
+        const action = memberJoined
+            ? 'NEW MEMBER JOINED — SEAL REFRESHED & VERIFIED'
+            : 'MEMBER DEPARTED — SEAL REFRESHED';
+        showSystemAlert(`🔄 ${action}`);
     }
 
     function verifySeal(peerSeal) {

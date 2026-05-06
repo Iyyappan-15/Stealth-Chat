@@ -112,14 +112,27 @@ class CryptoManager {
     // 7. Generate tamper-evident 4-emoji session seal
     // Derived from the raw bytes of the session key — same key = same seal on both ends
     async generateSessionSeal() {
+        return this.generateSessionSealWithSalt('');
+    }
+
+    // 7b. Generate session seal mixed with an extra salt string.
+    // All clients using the same sessionKey + same salt will get the same seal.
+    // Pass a different salt (e.g. join-counter) to get a new seal on membership change.
+    async generateSessionSealWithSalt(salt) {
         if (!this.sessionKey) return "????";
 
         // Export the raw key bytes
         const rawKey = await window.crypto.subtle.exportKey("raw", this.sessionKey);
         const keyBytes = new Uint8Array(rawKey);
 
-        // SHA-256 hash of key bytes for additional mixing
-        const hashBuffer = await window.crypto.subtle.digest("SHA-256", keyBytes);
+        // Mix key bytes with the salt so different salts produce different seals
+        const saltBytes = new TextEncoder().encode(String(salt));
+        const combined = new Uint8Array(keyBytes.length + saltBytes.length);
+        combined.set(keyBytes, 0);
+        combined.set(saltBytes, keyBytes.length);
+
+        // SHA-256 of combined buffer
+        const hashBuffer = await window.crypto.subtle.digest("SHA-256", combined);
         const hash = new Uint8Array(hashBuffer);
 
         // Curated 64-emoji palette (visually distinct, no ambiguous ones)
