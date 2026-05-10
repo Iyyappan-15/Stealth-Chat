@@ -16,27 +16,30 @@
     padding: 0;
 }
 
+/* ── Fill the viewport via the flex chain, NOT position:fixed ──
+   html → body → .screen all get height:100% so the chain
+   fills the viewport without any fixed positioning or viewport units. */
+html {
+    height: 100%;
+}
+
 body {
+    height: 100%;
     background-color: var(--bg-color);
     color: var(--text-color);
     font-family: var(--font-family);
-    height: 100%;
-    min-height: 100vh;
     display: flex;
     flex-direction: column;
-    overflow-x: hidden;
-    overflow-y: auto;
-    position: relative;
+    overflow: hidden;   /* body itself does not scroll — screens handle it */
     user-select: none;
 }
 
+/* Every screen fills the body */
 .screen {
     width: 100%;
-    min-height: 100vh;
+    height: 100%;
     display: flex;
     flex-direction: column;
-    position: relative;
-    z-index: 1;
     animation: fadeIn 0.4s ease-out;
 }
 
@@ -44,40 +47,23 @@ body {
     display: none !important;
 }
 
-/* Login Screen */
-#login-screen {
-    justify-content: flex-start;
-    align-items: center;
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding: 2rem 1rem;
-    /* Smooth momentum scrolling on iOS */
-    -webkit-overflow-scrolling: touch;
-}
-
-/* Type-select screen — also needs to scroll on small devices */
+/* Login & Type-select: scroll their own content internally */
+#login-screen,
 #type-select-screen {
-    justify-content: flex-start;
-    align-items: center;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 2rem 1rem;
     -webkit-overflow-scrolling: touch;
+    padding: 2rem 1rem;
+    justify-content: flex-start;
+    align-items: center;
+    /* height:100% inherited from .screen */
 }
 
-/* Chat screen: position:fixed with height:100dvh (NO bottom:0).
-   100dvh = dynamic viewport height = visible area EXCLUDING browser toolbars.
-   This correctly accounts for Brave/Chrome bottom tab bars on Android.
-   Using inset:0 / bottom:0 extends behind those toolbars, hiding the input. */
+/* Chat screen: just a flex column — NO position:fixed, NO height units.
+   It fills body via height:100% (inherited from .screen).
+   Header and input never shrink; messages fill remaining space and scroll. */
 #chat-screen {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 100dvh;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
+    overflow: hidden;   /* clip but don't scroll — messages-container scrolls */
 }
 
 .container {
