@@ -247,6 +247,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 triggerPanicMode();
             });
 
+            // ── MOBILE: Tab switch / app background → immediate panic ──────────
+            // On touch devices, leaving the app (home button, task switcher,
+            // notification drawer, tab switch) fires visibilitychange with
+            // document.hidden = true. On mobile there is no "soft" option —
+            // the screen is fully exposed to the OS, so we treat it as a
+            // hard security breach and enter panic mode immediately.
+            const isMobile = navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
+            if (isMobile) {
+                document.addEventListener('visibilitychange', () => {
+                    // Only act if a secure session is active (chatScreen visible)
+                    if (document.hidden && !chatScreen.classList.contains('hidden')) {
+                        // Show a brief panic warning in the chat before wiping
+                        showSystemAlert(
+                            Icons.html('warning', 'icon-xs') +
+                            ' SECURITY BREACH — SCREEN LEFT VISIBLE. PANIC MODE ACTIVATED.'
+                        );
+                        // Small delay (one animation frame) so the alert renders,
+                        // then trigger full panic
+                        requestAnimationFrame(() => {
+                            triggerPanicMode();
+                        });
+                    }
+                }, { capture: true });
+
+                // Also handle page hide (iOS Safari uses pagehide instead of visibilitychange)
+                window.addEventListener('pagehide', () => {
+                    if (!chatScreen.classList.contains('hidden')) {
+                        triggerPanicMode();
+                    }
+                }, { capture: true });
+            }
+
             const timerSelect = document.getElementById('timer-select');
             timerSelect.addEventListener('change', (e) => {
                 autoDestructTime = parseInt(e.target.value);
@@ -1029,10 +1061,15 @@ document.addEventListener('DOMContentLoaded', () => {
         cryptoManager = null;
         panicScreen.classList.add('active');
 
+        // Clear and hide the session seal immediately
+        sessionSealEl.innerHTML = '';
+        sessionSealContainer.classList.add('hidden');
+        sessionSealContainer.classList.remove('seal-mismatch', 'seal-pulse');
+        currentSeal = null;
+
         if (webrtcManager) webrtcManager.sendMessage(JSON.stringify({ type: 'WIPE_EVERYTHING' }));
         // Group: no need to broadcast, the relay would expose panic mode
         if (groupManager) groupManager.destroy();
-        console.log("PANIC MODE ACTIVATED");
     }
 
     function handleSecurityBreach(reason) {
@@ -1055,6 +1092,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (mediaCallManager && mediaCallManager.isCallActive) mediaCallManager.endCall(false);
         if (webrtcManager) webrtcManager.destroy();
         if (groupManager) groupManager.destroy();
+
+        // Immediately clear and hide the session seal before leaving
+        sessionSealEl.innerHTML = '';
+        sessionSealContainer.classList.add('hidden');
+        sessionSealContainer.classList.remove('seal-mismatch', 'seal-pulse');
+        currentSeal = null;
+
         alert(reason);
         window.location.reload();
     }

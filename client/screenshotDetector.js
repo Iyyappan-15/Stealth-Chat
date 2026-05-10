@@ -295,15 +295,21 @@ class ScreenshotDetector {
             }
         }, { capture: true, passive: false });
 
-        // ── visibilitychange — SOFT blackout only ────────────────────────────
-        // Page hidden = tab switch / minimise. Just black out silently.
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden) {
-                if (!this._blurSuppressed) this._softBlackout();
-            } else {
-                this._clearSoftBlackout();
-            }
-        });
+        // ── visibilitychange — SOFT blackout (desktop only) ──────────────────
+        // On desktop: tab switch / minimise → silent blackout only.
+        // On MOBILE: visibilitychange is handled in main.js as a HARD panic
+        //            (the app backgrounding fully exposes the screen to the OS).
+        //            The detector must NOT fire a soft blackout here on mobile or
+        //            it will conflict with the panic flow.
+        if (!isTouchDevice) {
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    if (!this._blurSuppressed) this._softBlackout();
+                } else {
+                    this._clearSoftBlackout();
+                }
+            });
+        }
 
         // ── Mouse leave — SOFT blackout (desktop only) ───────────────────────
         if (!isTouchDevice) {
