@@ -203,18 +203,6 @@ document.addEventListener('DOMContentLoaded', () => {
         loginScreen.classList.add('hidden');
         chatScreen.classList.remove('hidden');
 
-        // ── Set exact height immediately on activation ─────────────────────
-        // dvh/svh units are unreliable on some Android browsers (Brave, Chrome
-        // with bottom toolbar). window.innerHeight is always the actual usable
-        // height, so we use that as the definitive value.
-        const snapChatHeight = () => {
-            chatScreen.style.height = window.innerHeight + 'px';
-        };
-        snapChatHeight();
-        // Re-snap after a short delay in case the browser reflows
-        setTimeout(snapChatHeight, 150);
-        setTimeout(snapChatHeight, 500);
-
         const modeLabel = chatMode === 'group' ? 'GROUP' : 'SECURE';
         roomDisplay.textContent = `CHANNEL: ${modeLabel}_${roomId.toUpperCase()}`;
 
@@ -857,29 +845,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     window.addEventListener('resize', () => {
-        // Always update chat screen height on resize (handles toolbar show/hide)
-        if (!chatScreen.classList.contains('hidden')) {
-            chatScreen.style.height = window.innerHeight + 'px';
-        }
         if (messagesContainer) messagesContainer.scrollTop = messagesContainer.scrollHeight;
     });
-
-    // ── Visual Viewport API: handles keyboard open/close on mobile ────────────
-    if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', () => {
-            if (!chatScreen.classList.contains('hidden')) {
-                // Use visualViewport.height when keyboard is open (it shrinks)
-                // but clamp to window.innerHeight so we never exceed the screen
-                const h = Math.min(window.visualViewport.height, window.innerHeight);
-                chatScreen.style.height = h + 'px';
-                if (messagesContainer) {
-                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                }
-            } else {
-                chatScreen.style.height = '';
-            }
-        });
-    }
 
     let typingTimeout;
     messageInput.addEventListener('input', () => {
