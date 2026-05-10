@@ -16,28 +16,25 @@
     padding: 0;
 }
 
-/* ── Fill the viewport via the flex chain, NOT position:fixed ──
-   html → body → .screen all get height:100% so the chain
-   fills the viewport without any fixed positioning or viewport units. */
-html {
-    height: 100%;
-}
-
+/* ── Base Layout: natural page scroll, NO fixed/height hacks ──
+   The page scrolls normally. Header sticks to top, input sticks
+   to bottom. Works on every browser without viewport unit issues. */
 body {
-    height: 100%;
     background-color: var(--bg-color);
     color: var(--text-color);
     font-family: var(--font-family);
+    min-height: 100vh;
+    overflow-x: hidden;
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
-    overflow: hidden;   /* body itself does not scroll — screens handle it */
     user-select: none;
 }
 
-/* Every screen fills the body */
+/* Every screen is at least as tall as the viewport */
 .screen {
     width: 100%;
-    height: 100%;
+    min-height: 100vh;
     display: flex;
     flex-direction: column;
     animation: fadeIn 0.4s ease-out;
@@ -47,7 +44,7 @@ body {
     display: none !important;
 }
 
-/* Login & Type-select: scroll their own content internally */
+/* Login & Type-select: scroll their content normally */
 #login-screen,
 #type-select-screen {
     overflow-y: auto;
@@ -56,14 +53,14 @@ body {
     padding: 2rem 1rem;
     justify-content: flex-start;
     align-items: center;
-    /* height:100% inherited from .screen */
 }
 
-/* Chat screen: just a flex column — NO position:fixed, NO height units.
-   It fills body via height:100% (inherited from .screen).
-   Header and input never shrink; messages fill remaining space and scroll. */
+/* Chat screen: flex column, fills at least the full viewport.
+   NO position:fixed, NO overflow:hidden, NO height units. */
 #chat-screen {
-    overflow: hidden;   /* clip but don't scroll — messages-container scrolls */
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
 }
 
 .container {
@@ -349,17 +346,19 @@ button:active {
 }
 
 
-/* Header */
+/* Header: sticky so it stays visible while messages scroll */
 header {
     padding: 1rem 2rem;
-    background: rgba(5, 5, 5, 0.85);
+    background: rgba(5, 5, 5, 0.95);
     backdrop-filter: blur(15px);
     border-bottom: 1px solid var(--glass-border);
     display: flex;
     justify-content: space-between;
     align-items: center;
     z-index: 100;
-    flex-shrink: 0;   /* never compress the header */
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
 }
 
 .header-info {
@@ -426,15 +425,15 @@ header {
     margin-left: 15px;
 }
 
-/* Chat Container */
+/* Messages: grows to fill available space, no internal scroll —
+   the page itself scrolls through messages naturally */
 #messages-container {
-    flex: 1 1 0;        /* grow to fill space, shrink below content size */
-    min-height: 0;      /* crucial: allows flex child to shrink */
-    overflow-y: auto;
+    flex: 1;
     padding: 2rem;
     display: flex;
     flex-direction: column;
     gap: 20px;
+    min-height: 60vh;   /* ensure enough space even with few messages */
 }
 
 .message {
@@ -507,7 +506,7 @@ header {
     font-weight: bold;
 }
 
-/* Input Area */
+/* Input Area: sticky to the bottom of the viewport */
 .input-area {
     padding: 1rem 2rem;
     padding-bottom: max(1rem, env(safe-area-inset-bottom));
@@ -518,6 +517,9 @@ header {
     gap: 15px;
     align-items: center;
     flex-shrink: 0;
+    position: sticky;
+    bottom: 0;
+    z-index: 50;
 }
 
 #message-input {
@@ -993,16 +995,13 @@ body.hard-obscure .input-area {
         font-size: 0.65rem;
     }
 
-    /* Messages — fills all remaining space, scrolls internally */
+    /* Messages — page scrolls naturally, just reduce padding on mobile */
     #messages-container {
         padding: 0.75rem;
         gap: 12px;
-        flex: 1 1 0;
-        min-height: 0;
-        overflow-y: scroll;               /* 'scroll' forces track on iOS */
-        -webkit-overflow-scrolling: touch; /* iOS momentum scroll */
-        overscroll-behavior-y: contain;   /* stop page bouncing at top/bottom */
+        min-height: 55vh;
     }
+
 
     .message {
         max-width: 82%;
