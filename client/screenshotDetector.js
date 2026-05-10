@@ -69,18 +69,54 @@ class ScreenshotDetector {
                 pointer-events:    none !important;
                 -webkit-user-drag: none !important;
             }
+
+            /* ── Anti-capture overlay ──
+               Always rendered on top. mix-blend-mode:multiply degrades
+               colour fidelity in any OS screenshot of the browser window.
+               The repeating gradient adds visual noise to captured images. */
             #__stealth-anti-capture {
                 position: fixed;
                 inset: 0;
                 z-index: 2147483640;
                 pointer-events: none;
-                background: repeating-linear-gradient(
-                    0deg,
-                    rgba(0,0,0,0.015) 0px,
-                    transparent 2px
-                );
+                background:
+                    repeating-linear-gradient(
+                        0deg,
+                        rgba(0, 0, 0, 0.04) 0px,
+                        rgba(0, 0, 0, 0.01) 1px,
+                        transparent 2px,
+                        transparent 4px
+                    ),
+                    repeating-linear-gradient(
+                        90deg,
+                        rgba(0, 0, 0, 0.02) 0px,
+                        transparent 1px,
+                        transparent 3px
+                    );
                 mix-blend-mode: multiply;
+                opacity: 1;
             }
+
+            /* ── Focus-loss content wipe ──
+               When the window loses focus (Win+G overlay opens, Snipping Tool
+               appears, etc.) ALL sensitive content instantly becomes invisible.
+               transition:none ensures it's synchronous — no animation delay. */
+            html[data-unfocused] #messages-container,
+            html[data-unfocused] .message,
+            html[data-unfocused] .input-area {
+                visibility: hidden !important;
+                transition: none !important;
+            }
+            html[data-unfocused] #messages-container * {
+                color: transparent !important;
+                transition: none !important;
+            }
+            html[data-unfocused] img,
+            html[data-unfocused] video {
+                opacity: 0 !important;
+                transition: none !important;
+            }
+
             @media print {
                 html, body, body * { visibility: hidden !important; }
                 body::after {
@@ -265,20 +301,31 @@ class ScreenshotDetector {
     // ─── Layer 7: Focus Monitor (event-driven — replaces heavy RAF loop) ──────
 
     _initFocusListeners() {
+        // Mark document as unfocused via attribute — CSS uses this to hide content
+        const markFocused   = () => document.documentElement.removeAttribute('data-unfocused');
+        const markUnfocused = () => document.documentElement.setAttribute('data-unfocused', '');
+
+        // Set initial state
+        if (!document.hasFocus()) markUnfocused();
+
         // Tab switch / browser minimize
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
+                markUnfocused();
                 if (!this._blurSuppressed) this._softBlackout();
             } else {
+                markFocused();
                 this._clearSoftBlackout();
             }
         });
 
         // Window loses / gains focus
         window.addEventListener('blur', () => {
+            markUnfocused();
             if (!this._blurSuppressed) this._softBlackout();
         });
         window.addEventListener('focus', () => {
+            markFocused();
             this._clearSoftBlackout();
         });
 
