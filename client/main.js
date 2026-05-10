@@ -203,7 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const modeLabel = chatMode === 'group' ? 'GROUP' : 'SECURE';
         roomDisplay.textContent = `CHANNEL: ${modeLabel}_${roomId.toUpperCase()}`;
 
-        showSystemAlert(`IDENTIFIED AS: ${myName} | MODE: ${chatMode.toUpperCase()}`);
+        showSystemAlert(`IDENTIFIED AS: ${escapeHtml(myName)} | MODE: ${chatMode.toUpperCase()}`);
 
         await initSecurity();
 
@@ -340,7 +340,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (payload.type === 'KEY_EXCHANGE') {
                 await cryptoManager.deriveSessionKey(payload.key);
                 encryptionStatus.classList.remove('hidden');
-                showSystemAlert(Icons.html('shieldCheck', 'icon-xs') + ` CHANNEL SECURED WITH: ${payload.identity}`);
+                showSystemAlert(Icons.html('shieldCheck', 'icon-xs') + ` CHANNEL SECURED WITH: ${escapeHtml(payload.identity)}`);
 
                 // Generate and show seal
                 const seal = await cryptoManager.generateSessionSeal();
@@ -480,7 +480,7 @@ document.addEventListener('DOMContentLoaded', () => {
         connectionStatus.classList.remove('disconnected', 'connecting');
         connectionStatus.classList.add('connected');
         encryptionStatus.classList.remove('hidden');
-        showSystemAlert(Icons.html('shieldCheck', 'icon-xs') + ` GROUP CHANNEL SECURED | ${name}`);
+        showSystemAlert(Icons.html('shieldCheck', 'icon-xs') + ` GROUP CHANNEL SECURED | ${escapeHtml(name)}`);
 
         // Reset seal state — seal will be shown when participants-list arrives
         groupSealReady = false;
@@ -492,12 +492,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function onGroupParticipantJoined(name, id) {
-        showSystemAlert(Icons.html('userPlus', 'icon-xs') + ` ${name} JOINED THE CHANNEL`);
+        showSystemAlert(Icons.html('userPlus', 'icon-xs') + ` ${escapeHtml(name)} JOINED THE CHANNEL`);
         // Seal refresh is handled in updateParticipantsPanel when participants-list arrives
     }
 
     function onGroupParticipantLeft(name, id) {
-        showSystemAlert(Icons.html('userMinus', 'icon-xs') + ` ${name} LEFT THE CHANNEL`);
+        showSystemAlert(Icons.html('userMinus', 'icon-xs') + ` ${escapeHtml(name)} LEFT THE CHANNEL`);
         // Seal refresh is handled in updateParticipantsPanel when participants-list arrives
     }
 
@@ -581,7 +581,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // SESSION SEAL
     // ─────────────────────────────────────────────────────────────────────────
 
-    // ── Shared emoji palette (mirrors the one in crypto.js — keeps visuals consistent) ──
+    // ── Shared emoji palette (for cryptographic seal fingerprints shown in popup) ──
+    // NOTE: These emoji are kept intentionally — they are the cryptographic visual
+    // fingerprint that peers compare verbally to detect MITM attacks. They are DATA,
+    // not decorative UI elements, so they are NOT replaced with SVG icons.
     const SEAL_EMOJI_PALETTE = [
         "🐋","🦁","🐬","🦊","🐧","🦋","🐙","🦄",
         "🌙","⭐","☀️","🌈","🌊","🔥","❄️","⚡",
@@ -592,23 +595,6 @@ document.addEventListener('DOMContentLoaded', () => {
         "🚀","🛸","⛵","🚁","🛡️","⚔️","🗡️","🏹",
         "🦅","🦉","🦚","🦜","🐲","🦈","🐺","🦝"
     ];
-
-    /** Pick a pseudo-random emoji from the palette, optionally excluding one */
-    function _randomSealEmoji(exclude) {
-        let pool = SEAL_EMOJI_PALETTE;
-        if (exclude) pool = pool.filter(e => e !== exclude);
-        return pool[Math.floor(Math.random() * pool.length)];
-    }
-
-    /** Derive the "active" header display emoji from the current seal string */
-    function _sealHeaderEmoji() {
-        if (!currentSeal) return '🦭';
-        // currentSeal is a 4-emoji string; display the first one as the header badge
-        // Use spread to handle multi-codepoint emoji correctly
-        const emojis = [...currentSeal];
-        // Grab the first grapheme cluster (may be 1–2 codepoints)
-        return emojis[0] || '🦭';
-    }
 
     function showSessionSeal(seal) {
         currentSeal = seal;
@@ -996,10 +982,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 1000);
     }
 
-    function showSystemAlert(text) {
+    function showSystemAlert(html) {
         const msgDiv = document.createElement('div');
         msgDiv.classList.add('message', 'system');
-        msgDiv.textContent = text;
+        // Use innerHTML so SVG icon spans (from Icons.html()) render correctly.
+        // All dynamic content passed here is either a fixed string literal or
+        // an Icons.html() call — no user-controlled data is inserted unsanitized.
+        msgDiv.innerHTML = html;
         messagesContainer.appendChild(msgDiv);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
