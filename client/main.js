@@ -664,9 +664,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Public helper for console testing
-    window.showSealMismatch = () => verifySeal("????");
-
     // ─────────────────────────────────────────────────────────────────────────
     // MEDIA MANAGERS (P2P only)
     // ─────────────────────────────────────────────────────────────────────────
