@@ -950,23 +950,21 @@ body.hard-obscure .input-area {
         display: none !important;
     }
 
-    /* Send button: icon only on mobile ("TRANSMIT" is too wide) */
+    /* Send button: compact text, fully centered */
     #send-btn {
         flex-shrink: 0;
-        font-size: 0;               /* hide "TRANSMIT" text */
-        width: 44px;
-        min-width: 44px;
-        height: 44px;
-        padding: 0;
+        padding: 10px 12px;
+        font-size: 0.65rem;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
         display: flex;
         align-items: center;
         justify-content: center;
+        min-width: fit-content;
     }
+    /* Remove the arrow we added earlier */
     #send-btn::after {
-        content: "›";              /* visible send arrow */
-        font-size: 1.6rem;
-        line-height: 1;
-        font-weight: bold;
+        display: none;
     }
 
     .setting-item {
