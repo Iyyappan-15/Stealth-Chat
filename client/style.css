@@ -4,13 +4,8 @@
     --glass-border: rgba(0, 229, 255, 0.15);
     --text-color: #e0e0e0;
     --accent-color: #00ff9d;
-    /* Neon Green */
-    --accent-glow: 0 0 15px rgba(0, 255, 157, 0.6);
     --secondary-color: #00e5ff;
-    /* Cyan */
-    --secondary-glow: 0 0 15px rgba(0, 229, 255, 0.6);
     --danger-color: #ff2a6d;
-    --danger-glow: 0 0 15px rgba(255, 42, 109, 0.6);
     --success-color: #00ff9d;
     --font-family: 'JetBrains Mono', 'Courier New', monospace;
 }
@@ -19,15 +14,10 @@
     box-sizing: border-box;
     margin: 0;
     padding: 0;
-    cursor: crosshair;
-    /* Hacker feel */
 }
 
 body {
     background-color: var(--bg-color);
-    background-image:
-        radial-gradient(circle at 15% 50%, rgba(0, 229, 255, 0.08) 0%, transparent 35%),
-        radial-gradient(circle at 85% 30%, rgba(0, 255, 157, 0.08) 0%, transparent 35%);
     color: var(--text-color);
     font-family: var(--font-family);
     height: 100vh;
@@ -36,20 +26,6 @@ body {
     overflow: hidden;
     position: relative;
     user-select: none;
-    /* Privacy */
-}
-
-/* Cyber Grid */
-body::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background:
-        linear-gradient(rgba(0, 229, 255, 0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0, 229, 255, 0.03) 1px, transparent 1px);
-    background-size: 50px 50px;
-    pointer-events: none;
-    z-index: 0;
 }
 
 .screen {
@@ -78,7 +54,7 @@ body::before {
     border-radius: 20px;
     background: var(--card-bg);
     backdrop-filter: blur(20px);
-    box-shadow: 0 0 50px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(0, 229, 255, 0.05);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
     width: 100%;
     max-width: 500px;
     text-align: center;
@@ -87,7 +63,6 @@ body::before {
 h1 {
     margin-bottom: 0;
     color: var(--secondary-color);
-    text-shadow: var(--secondary-glow);
     font-size: 3rem;
     letter-spacing: -2px;
 }
@@ -107,18 +82,12 @@ h1 {
     object-fit: contain;
     border-radius: 16px;
     flex-shrink: 0;
-    animation: logoGlow 3s ease-in-out infinite alternate;
 }
 
 .brand-logo-sm {
     width: 52px;
     height: 52px;
     border-radius: 12px;
-}
-
-@keyframes logoGlow {
-    0%   { filter: drop-shadow(0 0 6px rgba(255, 184, 0, 0.5))  drop-shadow(0 0 14px rgba(0, 229, 255, 0.4)); }
-    100% { filter: drop-shadow(0 0 18px rgba(255, 184, 0, 0.9)) drop-shadow(0 0 32px rgba(0, 229, 255, 0.7)); }
 }
 
 /* ── Chat header inline logo ── */
@@ -134,8 +103,6 @@ h1 {
     object-fit: contain;
     border-radius: 8px;
     flex-shrink: 0;
-    filter: drop-shadow(0 0 6px rgba(255, 184, 0, 0.6)) drop-shadow(0 0 10px rgba(0, 229, 255, 0.3));
-    animation: logoGlow 3s ease-in-out infinite alternate;
 }
 
 .subtitle {
@@ -161,14 +128,12 @@ input {
     border-radius: 12px;
     font-family: inherit;
     font-size: 1.1rem;
-    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+    transition: border-color 0.2s ease;
 }
 
 input:focus {
     outline: none;
     border-color: var(--secondary-color);
-    box-shadow: 0 0 20px rgba(0, 229, 255, 0.2), inset 0 0 10px rgba(0, 229, 255, 0.1);
 }
 
 button {
@@ -183,13 +148,12 @@ button {
     font-size: 1rem;
     text-transform: uppercase;
     letter-spacing: 2px;
-    transition: all 0.3s ease;
-    box-shadow: var(--secondary-glow);
+    transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 button:hover {
-    transform: scale(1.02) translateY(-2px);
-    box-shadow: 0 0 30px var(--secondary-color);
+    opacity: 0.88;
+    transform: translateY(-1px);
 }
 
 button:active {
@@ -216,7 +180,6 @@ button:active {
 .mode-btn.active {
     background: var(--secondary-color);
     color: #000;
-    box-shadow: var(--secondary-glow);
 }
 
 .mode-btn:hover:not(.active) {
@@ -259,7 +222,6 @@ button:active {
     font-weight: 800;
     letter-spacing: 2px;
     margin-bottom: 15px;
-    text-shadow: var(--accent-glow);
     word-break: break-all;
 }
 
@@ -275,7 +237,6 @@ button:active {
 .copy-btn:hover:not(:disabled) {
     background: var(--secondary-color);
     color: #000;
-    box-shadow: var(--secondary-glow);
 }
 
 .copy-btn:disabled {
@@ -291,11 +252,6 @@ button:active {
 
 .action-btn.secondary {
     background: var(--accent-color);
-    box-shadow: var(--accent-glow);
-}
-
-.action-btn.secondary:hover {
-    box-shadow: 0 0 30px var(--accent-color);
 }
 
 .status {
@@ -345,25 +301,20 @@ header {
 
 .connected {
     color: var(--accent-color);
-    text-shadow: var(--accent-glow);
-    animation: pulseGreen 2s infinite;
 }
 
 .disconnected {
     color: var(--danger-color);
-    text-shadow: var(--danger-glow);
 }
 
-/* ── Connecting (waiting for peer) — amber spinner ── */
 .connecting {
     color: #ffb800;
-    text-shadow: 0 0 12px rgba(255, 184, 0, 0.7);
     animation: pulseAmber 1.2s ease-in-out infinite;
 }
 
 @keyframes pulseAmber {
-    0%, 100% { opacity: 0.5; text-shadow: 0 0 6px rgba(255, 184, 0, 0.4); }
-    50%       { opacity: 1;   text-shadow: 0 0 18px rgba(255, 184, 0, 0.9); }
+    0%, 100% { opacity: 0.5; }
+    50%       { opacity: 1; }
 }
 
 /* Tiny spinning ring shown while connecting */
@@ -469,7 +420,6 @@ header {
     padding: 2px 6px;
     border-radius: 8px;
     font-weight: bold;
-    box-shadow: var(--danger-glow);
 }
 
 /* Input Area */
@@ -596,17 +546,8 @@ header {
 }
 
 @keyframes pulseGreen {
-    0% {
-        text-shadow: 0 0 5px var(--accent-color);
-    }
-
-    50% {
-        text-shadow: 0 0 20px var(--accent-color);
-    }
-
-    100% {
-        text-shadow: 0 0 5px var(--accent-color);
-    }
+    0%, 100% { opacity: 0.8; }
+    50%       { opacity: 1; }
 }
 
 /* Scrollbar Style */
@@ -650,13 +591,11 @@ header {
     padding: 4rem;
     border-radius: 20px;
     text-align: center;
-    box-shadow: 0 0 100px var(--danger-color);
     max-width: 600px;
 }
 
 .alert-box h2 {
     color: var(--danger-color);
-    text-shadow: var(--danger-glow);
     font-size: 2rem;
     margin-bottom: 1.5rem;
 }
@@ -1108,7 +1047,6 @@ body.hard-obscure .input-area {
 .icon-btn:hover {
     background: rgba(0, 229, 255, 0.18);
     border-color: var(--secondary-color);
-    box-shadow: 0 0 12px rgba(0, 229, 255, 0.3);
     transform: scale(1.05) translateY(-1px);
 }
 
@@ -1119,13 +1057,12 @@ body.hard-obscure .input-area {
 .icon-btn.active-call {
     background: rgba(255, 42, 109, 0.15);
     border-color: var(--danger-color);
-    box-shadow: 0 0 12px rgba(255, 42, 109, 0.5);
     animation: pulseRed 1.5s infinite;
 }
 
 @keyframes pulseRed {
-    0%, 100% { box-shadow: 0 0 8px rgba(255, 42, 109, 0.4); }
-    50%       { box-shadow: 0 0 20px rgba(255, 42, 109, 0.8); }
+    0%, 100% { opacity: 0.8; }
+    50%       { opacity: 1; }
 }
 
 /* ---- Call Overlay ---- */
@@ -1153,7 +1090,6 @@ body.hard-obscure .input-area {
     border: 1px solid rgba(255, 42, 109, 0.3);
     border-radius: 24px;
     background: rgba(15, 0, 5, 0.85);
-    box-shadow: 0 0 80px rgba(255, 42, 109, 0.2);
     position: relative;
     text-align: center;
 }
@@ -1183,7 +1119,6 @@ body.hard-obscure .input-area {
 
 .call-title {
     color: var(--danger-color);
-    text-shadow: var(--danger-glow);
     font-size: 1.5rem;
     letter-spacing: 2px;
 }
@@ -1201,12 +1136,10 @@ body.hard-obscure .input-area {
     color: #fff;
     letter-spacing: 4px;
     font-variant-numeric: tabular-nums;
-    text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
 }
 
 .end-call-btn {
     background: var(--danger-color);
-    box-shadow: var(--danger-glow);
     padding: 14px 32px;
     font-size: 0.9rem;
     letter-spacing: 2px;
@@ -1215,8 +1148,8 @@ body.hard-obscure .input-area {
 }
 
 .end-call-btn:hover {
-    box-shadow: 0 0 30px var(--danger-color);
-    transform: scale(1.04) translateY(-2px);
+    opacity: 0.88;
+    transform: translateY(-1px);
 }
 
 /* ---- Media Transfer Progress Bar ---- */
@@ -1367,28 +1300,23 @@ body.hard-obscure .input-area {
 
 .p2p-card {
     border-color: rgba(0, 229, 255, 0.35);
-    box-shadow: 0 0 40px rgba(0, 229, 255, 0.1), inset 0 0 20px rgba(0,229,255,0.04);
 }
 
 .p2p-card:hover {
     border-color: var(--secondary-color);
-    box-shadow: 0 0 60px rgba(0, 229, 255, 0.25), inset 0 0 25px rgba(0,229,255,0.08);
 }
 
 .group-card {
     border-color: rgba(0, 255, 157, 0.35);
-    box-shadow: 0 0 40px rgba(0, 255, 157, 0.1), inset 0 0 20px rgba(0,255,157,0.04);
 }
 
 .group-card:hover {
     border-color: var(--accent-color);
-    box-shadow: 0 0 60px rgba(0, 255, 157, 0.25), inset 0 0 25px rgba(0,255,157,0.08);
 }
 
 .type-card-icon {
     font-size: 3.5rem;
     line-height: 1;
-    filter: drop-shadow(0 0 12px currentColor);
 }
 
 .type-card-title {
@@ -1510,7 +1438,6 @@ body.hard-obscure .input-area {
 
 #name-input:focus {
     border-color: var(--accent-color);
-    box-shadow: 0 0 20px rgba(0, 255, 157, 0.2), inset 0 0 10px rgba(0, 255, 157, 0.1);
 }
 
 /* =============================================
@@ -1546,12 +1473,11 @@ body.hard-obscure .input-area {
 .hamburger-btn:hover {
     background: rgba(0,229,255,0.15);
     border-color: var(--secondary-color);
-    box-shadow: 0 0 12px rgba(0,229,255,0.25);
     transform: none;
 }
 
 .hamburger-btn:hover span {
-    box-shadow: 0 0 6px var(--secondary-color);
+    opacity: 0.9;
 }
 
 /* =============================================
@@ -1635,7 +1561,6 @@ body.hard-obscure .input-area {
     height: 8px;
     border-radius: 50%;
     background: var(--accent-color);
-    box-shadow: 0 0 8px var(--accent-color);
     flex-shrink: 0;
     animation: pulseGreen 2s infinite;
 }
@@ -1692,7 +1617,6 @@ body.hard-obscure .input-area {
 
 .session-seal-container:hover {
     border-color: var(--accent-color);
-    box-shadow: 0 0 14px rgba(0,255,157,0.2);
 }
 
 .session-seal-label {
@@ -1715,7 +1639,6 @@ body.hard-obscure .input-area {
 .session-seal-container.seal-mismatch {
     border-color: var(--danger-color) !important;
     background: rgba(255,42,109,0.08) !important;
-    box-shadow: 0 0 20px rgba(255,42,109,0.4) !important;
     animation: mismatchPulse 0.5s ease infinite alternate !important;
 }
 
@@ -1731,13 +1654,13 @@ body.hard-obscure .input-area {
 }
 
 @keyframes sealAppear {
-    0%   { transform: scale(1.2); box-shadow: 0 0 30px rgba(0,255,157,0.5); }
-    100% { transform: scale(1);   box-shadow: none; }
+    0%   { transform: scale(1.1); }
+    100% { transform: scale(1); }
 }
 
 @keyframes mismatchPulse {
-    from { box-shadow: 0 0 10px rgba(255,42,109,0.4); }
-    to   { box-shadow: 0 0 30px rgba(255,42,109,0.8); }
+    from { opacity: 0.8; }
+    to   { opacity: 1; }
 }
 
 /* =============================================
@@ -1832,7 +1755,6 @@ body.hard-obscure .input-area {
     border: 1px solid rgba(0, 255, 157, 0.35);
     border-radius: 24px;
     background: rgba(5, 15, 10, 0.9);
-    box-shadow: 0 0 80px rgba(0, 255, 157, 0.2), inset 0 0 40px rgba(0, 255, 157, 0.04);
     text-align: center;
     max-width: 480px;
     width: 90%;
@@ -1874,13 +1796,12 @@ body.hard-obscure .input-area {
     border-radius: 12px;
     font-size: 0.85rem;
     letter-spacing: 2px;
-    box-shadow: var(--accent-glow);
     margin-top: 4px;
 }
 
 .seal-popup-close:hover {
-    box-shadow: 0 0 30px var(--accent-color);
-    transform: scale(1.03) translateY(-2px);
+    opacity: 0.88;
+    transform: translateY(-1px);
 }
 
 @media (max-width: 768px) {
@@ -1913,7 +1834,6 @@ body.hard-obscure .input-area {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    box-shadow: 0 0 20px rgba(0, 229, 255, 0.06), inset 0 0 12px rgba(0, 229, 255, 0.03);
     transition: border-color 0.25s ease;
 }
 
@@ -1932,7 +1852,6 @@ body.hard-obscure .input-area {
     font-size: 2rem;
     line-height: 1;
     flex-shrink: 0;
-    filter: drop-shadow(0 0 8px rgba(0, 229, 255, 0.4));
 }
 
 .secure-file-info {
@@ -2003,7 +1922,6 @@ audio.media-preview-inline {
 .secure-file-btn.view:hover {
     background: rgba(0, 229, 255, 0.2);
     border-color: var(--secondary-color);
-    box-shadow: 0 0 12px rgba(0, 229, 255, 0.3);
     transform: none;
 }
 
@@ -2017,7 +1935,6 @@ audio.media-preview-inline {
 .secure-file-btn.save:hover {
     background: rgba(0, 255, 157, 0.18);
     border-color: var(--accent-color);
-    box-shadow: 0 0 12px rgba(0, 255, 157, 0.3);
     transform: none;
 }
 

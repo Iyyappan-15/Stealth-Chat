@@ -16,8 +16,3 @@
 
 // CONFIGURE YOUR SIGNALING SERVER URL HERE:
 window.SIGNALING_SERVER_URL = 'https://stealth-chat-9hfx.onrender.com';
-
-// Production example (uncomment and modify after deploying server):
-// window.SIGNALING_SERVER_URL = 'https://your-app.onrender.com';
-// window.SIGNALING_SERVER_URL = 'https://your-app.up.railway.app';
-// window.SIGNALING_SERVER_URL = 'wss://your-server.herokuapp.com';

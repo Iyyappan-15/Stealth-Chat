@@ -38,7 +38,6 @@ class CryptoManager {
             ["encrypt", "decrypt"]
         );
 
-        console.log("Session Key Derived Successfully!");
         return this.sessionKey;
     }
 
@@ -67,7 +66,6 @@ class CryptoManager {
             ["encrypt", "decrypt"]
         );
 
-        console.log("Group Session Key Derived Successfully!");
         return this.sessionKey;
     }
 
