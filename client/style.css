@@ -65,16 +65,22 @@ body {
     -webkit-overflow-scrolling: touch;
 }
 
-/* Chat screen — MUST stay locked so only the messages area scrolls */
+/* Chat screen — locked so only the messages area scrolls.
+   Uses 100dvh so the layout shrinks when the mobile keyboard opens,
+   keeping the input bar always on-screen. */
 #chat-screen {
-    height: 100vh;
-    max-height: 100vh;
+    height: 100dvh;
+    max-height: 100dvh;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
+    /* iOS momentum scroll fix */
+    -webkit-overflow-scrolling: touch;
 }
 
 .container {
@@ -370,6 +376,7 @@ header {
     justify-content: space-between;
     align-items: center;
     z-index: 100;
+    flex-shrink: 0;   /* never compress the header */
 }
 
 .header-info {
@@ -438,7 +445,8 @@ header {
 
 /* Chat Container */
 #messages-container {
-    flex-grow: 1;
+    flex: 1 1 0;        /* grow to fill space, shrink below content size */
+    min-height: 0;      /* crucial: allows flex child to shrink */
     overflow-y: auto;
     padding: 2rem;
     display: flex;
@@ -525,6 +533,7 @@ header {
     display: flex;
     gap: 15px;
     align-items: center;
+    flex-shrink: 0;   /* never compress the input bar */
 }
 
 #message-input {
@@ -538,6 +547,7 @@ header {
     font-size: 0.7rem;
     color: #666;
     background: rgba(0, 0, 0, 0.3);
+    flex-shrink: 0;
 }
 
 #privacy-toolbar label {
@@ -574,6 +584,7 @@ header {
     padding: 0 3rem 1rem;
     font-style: italic;
     animation: blink 1.5s infinite;
+    flex-shrink: 0;
 }
 
 /* Panic Screen Style */
@@ -809,10 +820,13 @@ body.hard-obscure .input-area {
 /* --- Mobile (≤ 768px) --- */
 @media (max-width: 768px) {
 
-    /* Body: allow scroll when keyboard opens */
+    /* Body: fixed size, no scroll — chat screen handles its own layout */
     body {
         height: 100dvh;
+        min-height: unset;
         overflow: hidden;
+        position: fixed;
+        width: 100%;
     }
 
     /* Login Screen */
@@ -977,10 +991,14 @@ body.hard-obscure .input-area {
         margin-left: auto;
     }
 
-    /* Messages */
+    /* Messages — flex-grow fills all remaining space between header & input */
     #messages-container {
         padding: 0.75rem;
         gap: 12px;
+        flex: 1 1 0;
+        min-height: 0;   /* crucial: allows flex child to shrink below content size */
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
     }
 
     .message {
@@ -993,11 +1011,12 @@ body.hard-obscure .input-area {
         max-width: 90%;
     }
 
-    /* Input Area — stick to bottom with iOS safe area */
+    /* Input Area — always pinned to bottom, never pushed off screen */
     .input-area {
         padding: 0.6rem 0.75rem;
         padding-bottom: calc(0.6rem + env(safe-area-inset-bottom));
         gap: 8px;
+        flex-shrink: 0;   /* never compress the input row */
     }
 
     #message-input {
@@ -1257,6 +1276,7 @@ body.hard-obscure .input-area {
     align-items: center;
     padding: 0 1rem;
     gap: 10px;
+    flex-shrink: 0;
 }
 
 .media-progress.hidden {
