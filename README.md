@@ -1,332 +1,102 @@
-# 🕵️ Stealth Chat - Serverless Secured P2P Messaging
+# 🕵️‍♂️ Stealth Chat - Secure & Ephemeral P2P Messenger
 
-## 📜 Abstract
-Stealth Chat is a browser-based, peer-to-peer (P2P) messaging application designed for maximum privacy and security. Unlike traditional chat apps that store messages on a central server, Stealth Chat establishes a direct connection between two users using **WebRTC**. Messages are end-to-end encrypted using **AES-GCM** with ephemeral keys generated via **ECDH** (Elliptic Curve Diffie-Hellman), ensuring that even if the signaling server is compromised, the messages remain unreadable. The application also features unique security mechanisms like "Screenshot Detection" and "Auto-Destructing Messages" to prevent data leakage.
+## 📜 What is Stealth Chat?
+Stealth Chat is a modern, minimal, browser-based peer-to-peer (P2P) messaging application designed for absolute privacy. Instead of routing your messages and files through a central server, Stealth Chat connects you directly to other users using **WebRTC**.
 
----
-
-## 🎯 Objectives
-1.  **Eliminate Data Storage**: No database or message history on any server.
-2.  **End-to-End Encryption**: Secure key exchange and encryption in the browser.
-3.  **Peer-to-Peer Communication**: Direct data transfer between clients.
-4.  **Anti-Forensics**: Messages disappear automatically; screenshot attempts trigger alerts.
-5.  **Simplicity**: Lightweight implementations suitable for educational demonstration.
+Everything you send—text, audio, video, and files—is **end-to-end encrypted** using AES-GCM. Once your chat is over or a timer expires, everything is permanently wiped from memory. No database. No message history. Pure privacy.
 
 ---
 
-## 🏗 System Architecture
+## ✨ Key Features & Updates
 
-The system consists of two main parts:
+### 🔒 1. True End-To-End Encryption
+*   Uses the **Web Crypto API**. Keys are generated securely in your browser using **ECDH** (Elliptic Curve Diffie-Hellman).
+*   Messages and media are encrypted with **AES-GCM** before they ever leave your device.
 
-### 1. Signaling Server (Node.js)
-*   **Role**: The "Matchmaker".
-*   **Why**: WebRTC peers (browsers) don't know each other's IP addresses initially.
-*   **How**: It runs a simple WebSocket server. Client A sends its connection info (SDP/ICE Candidates) to the server, which forwards it to Client B. Once the handshake is complete, the server is no longer needed for the chat itself.
+### 👥 2. Group Chats with Dynamic Security Seals
+*   Support for both 1-on-1 and Group discussions.
+*   **Dynamic Group Seals**: A unique security "seal" emoji changes randomly whenever a new member joins or leaves the group. This instantly visually alerts all users to a change in the room's composition, ensuring no invisible lurkers.
 
-### 2. Client (HTML/CSS/JS)
-*   **WebRTC Manager**: Handles the complicated logic of connecting to another browser.
-*   **Crypto Manager**: Handles generating keys and encrypting/decrypting text.
-*   **Screenshot Detector**: Monitors user behavior to detect screen capture attempts.
+### 📁 3. In-Memory Media Sharing & Calling
+*   **Media Sharing**: Share files securely directly between peers. Files are stored entirely in memory (ephemeral) with safe "View" and "Download" options.
+*   **Audio/Video Calls**: Start encrypted real-time video or voice calls seamlessly within your chat session.
 
----
+### 📸 4. Smart Screenshot & Intrusion Detection
+*   **Soft Focus-Loss**: If you switch tabs or minimize the window, the screen instantly blacks out to protect privacy from over-the-shoulder snooping.
+*   **Hard Breaches**: If the app detects a screenshot attempt (via keyboard shortcuts or system tools), it immediately alerts the other peers and can wipe the session.
 
-## 🚀 Features & Unique Innovations
+### ⏳ 5. Auto-Destructing Messages
+*   Take control of your data with configurable timers (e.g., 5s, 10s, 30s, 1m).
+*   Messages automatically self-destruct from the screen and memory when the timer hits zero.
 
-### 🔒 1. End-To-End Encryption (E2EE)
-*    **Technology**: Web Crypto API (Standard in modern browsers).
-*    **Mechanism**:
-    1.  When peers connect, they generate **ECDH Key pairs**.
-    2.  They exchange **Public Keys** over the data channel.
-    3.  Each peer derives a shared **Secret Session Key**.
-    4.  All messages are encrypted with **AES-GCM** using this key.
-
-### 📸 2. Screenshot & Intrusion Detection
-*   **Concept**: If a user tries to capture proof of the conversation, the system detects it.
-*   **Method**:
-    *   Listens for `PrintScreen` and `Alt + PrintScreen`.
-    *   Detects screenshot shortcuts (Win+Shift+S, Cmd+Shift+3/4).
-    *   Monitors `visibilitychange` (tab switching).
-    *   **Action**: A black-out overlay appears with the message "⚠ Screenshot or screen capture suspected". A **System Alert** is sent to the peer.
-
-### 💣 3. Auto-Destruct Messages (Configurable)
-*   **Concept**: Mission: Impossible style messages with user control.
-*   **Method**: Users can choose between 5s, 10s (default), 30s, or 1m timers. When it hits 0, the message is permanently removed from memory and the DOM.
-
-### 🔒 4. Session Lock
-*   **Concept**: Prevent unauthorized access if the user steps away.
-*   **Action**: If enabled, switching tabs or minimizing the window will trigger an immediate session wipe and logout. If disabled, it only obscures the screen for privacy.
+### 🎨 6. Clean, Minimalist Design
+*   A newly refined, professional UI with clean SVG icons, responsive mobile layouts, and a focus on usability without unnecessary visual clutter.
 
 ---
 
-## 🛠 Technologies Used
-*   **Frontend**: HTML5, CSS3, Vanilla JavaScript (ES6+).
-*   **Backend**: Node.js used ONLY for the signaling WebSocket server.
-*   **Protocols**: WebRTC (RTCDataChannel), WebSocket.
-*   **Security Library**: Native Web Crypto API (SubtleCrypto).
+## 🏗 How It Works
+1.  **Signaling Server (Node.js)**: Acts purely as a "Matchmaker". It helps browsers find each other using Room IDs.
+2.  **Client (HTML/JS)**: Once a WebRTC connection is established, the signaling server steps back. All data (chat, video, files) flows *directly* from Browser A to Browser B.
 
 ---
 
 ## 📋 Prerequisites
-
-Before running Stealth Chat, ensure you have:
-
-1. **Node.js** (v14 or higher) - [Download here](https://nodejs.org/)
-2. **npm** (comes with Node.js)
-3. **Modern Web Browser** (Chrome, Firefox, Edge, or Safari)
-   - Must support WebRTC and Web Crypto API
-4. **HTTPS or localhost** - Web Crypto API requires secure context
+*   **Node.js** (v14 or higher)
+*   **Modern Web Browser** (Chrome, Firefox, Edge, Safari)
+*   **Localhost or HTTPS** (Required for the Web Crypto API to function)
 
 ---
 
 ## 🏃‍♂️ How to Run This Project
 
 ### Step 1: Install Dependencies
-
-Open a terminal/command prompt and navigate to the project directory:
-
+Open a terminal and navigate to the `server` directory:
 ```bash
 cd server
 npm install
 ```
 
-This will install all required dependencies:
-- `express` - Web server framework
-- `ws` - WebSocket library
-- `cors` - Cross-origin resource sharing
-
 ### Step 2: Start the Signaling Server
-
-From the `server` directory, run:
-
 ```bash
 npm start
 ```
+*The server will start running on port 8080.*
 
-Or directly:
+### Step 3: Open the Client
+Open your browser and navigate to `http://localhost:8080`.
 
-```bash
-node server.js
-```
-
-You should see:
-```
-Serving static files from: [path]/client
-Server is running on port 8080
-```
-
-**✅ Server is now running!** Keep this terminal window open.
-
-### Step 3: Open the Client Application
-
-The server automatically serves the client files. Open your web browser and navigate to:
-
-```
-http://localhost:8080
-```
-
-### Step 4: Start a Secure Chat Session
-
-**Option A: Same Computer (Two Browser Tabs)**
-
-1. Open `http://localhost:8080` in **two different browser tabs** (or use two different browsers)
-2. In **Tab 1**: Enter a Room ID (e.g., "secret123") and click **ENTER SECURE CHANNEL**
-3. In **Tab 2**: Enter the **SAME** Room ID ("secret123") and click **ENTER SECURE CHANNEL**
-4. Wait for the status to turn **Green: "● Secure Link Established"**
-5. Start chatting! Messages are end-to-end encrypted.
-
-**Option B: Two Different Computers (Same Network)**
-
-1. Find the IP address of the computer running the server:
-   - Windows: `ipconfig` (look for IPv4 Address)
-   - Mac/Linux: `ifconfig` or `ip addr`
-   
-2. On the server computer, the server should already be running on port 8080
-
-3. On **both computers**, open a browser and navigate to:
-   ```
-   http://[SERVER_IP]:8080
-   ```
-   Example: `http://192.168.1.100:8080`
-
-4. Enter the same Room ID on both computers
-5. Wait for connection and start chatting!
-
-**Option C: Different Networks (Production Deployment)**
-
-For real-world usage where you and your friend are on different WiFi networks or in different locations:
-
-1. **Deploy the server** to a cloud platform (Render, Railway, etc.)
-2. **Deploy the client** to static hosting (Netlify, Vercel, etc.)
-3. **Share the client URL** with your friend
+### Step 4: Start Chatting
+1. Open the URL in multiple tabs or devices on the same network.
+2. Enter the **same Room ID**.
+3. Wait for the secure link to establish, and start communicating securely!
 
 📚 **See our deployment guides:**
 - [🚀 QUICK_START.md](./QUICK_START.md) - Fast 5-minute deployment guide
 - [📖 DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) - Comprehensive deployment documentation
 
-
 ---
 
-## 🧪 How to Verify (Testing)
-
-### 1. Verify P2P Connection
-- After establishing the chat connection, **stop the Node.js server** (Ctrl+C in the terminal)
-- Try sending a message in the chat
-- **It will still work!** This proves the connection is truly peer-to-peer
-
-### 2. Verify Encryption
-- Open Browser Console (Press `F12`)
-- Go to the **Console** tab
-- Look for log messages showing encrypted payloads with `iv` and `data` fields
-- Messages are NOT sent as plain text
-
-### 3. Verify Screenshot Detection
-- Press `PrintScreen` or `Alt + PrintScreen`.
-- Watch the **black security overlay** appear with the alert message.
-- Verify the **other peer** receives a security notification.
-
-### 4. Verify Auto-Destruct Configuration
-- Change the timer in the header (e.g., to 5s).
-- Send a message and verify it lasts only 5 seconds.
-
-### 5. Verify Session Lock
-- Toggle the **Session Lock** switch to "ON".
-- Switch browser tabs and then come back.
-- Verify the chat has been reset and you are back at the login screen.
-
----
-
-## 🔧 Troubleshooting
-
-### Server won't start
-**Error**: `Cannot find module 'express'` or similar
-- **Solution**: Run `npm install` in the `server` directory
-
-**Error**: `Port 8080 is already in use`
-- **Solution**: Change the port in `server/server.js` (line 10) or stop the process using port 8080
-
-### Client won't connect
-**Error**: "Failed to connect to signaling server"
-- **Solution**: Make sure the server is running (`npm start` in server directory)
-- Check that you're accessing `http://localhost:8080` (not `file://`)
-
-### Encryption errors
-**Error**: "SECURITY ERROR: The operation is insecure"
-- **Solution**: Web Crypto API requires HTTPS or localhost. Make sure you're using `http://localhost:8080`, not opening the HTML file directly
-
-### WebRTC connection fails
-**Problem**: Status stays "Disconnected"
-- **Solution**: 
-  - Check browser console for errors (F12)
-  - Make sure both peers entered the **exact same** Room ID
-  - Try refreshing both browser tabs
-  - Check firewall settings (may block WebRTC)
-
-### Screenshot detection too sensitive
-- The detection has been tuned to avoid false positives
-- Only triggers on actual screenshot keys, not normal tab switching
-- If needed, you can disable it by commenting out the detector in `client/main.js`
-
----
-
-## 🌐 Browser Compatibility
-
-| Browser | Supported | Notes |
-|---------|-----------|-------|
-| Chrome  | ✅ Yes    | Recommended |
-| Firefox | ✅ Yes    | Fully supported |
-| Edge    | ✅ Yes    | Chromium-based |
-| Safari  | ✅ Yes    | macOS/iOS 11+ |
-| Opera   | ✅ Yes    | Chromium-based |
-
-**Note**: All browsers must support WebRTC and Web Crypto API (all modern browsers do).
-
----
-
-## 🔒 Security Considerations
-
-### What is Encrypted
-✅ All chat messages (end-to-end)  
-✅ Message content never touches the server  
-✅ Encryption keys generated locally in browser  
-
-### What is NOT Encrypted
-⚠️ Room IDs (sent to signaling server)  
-⚠️ Connection metadata (IP addresses visible to STUN servers)  
-⚠️ The fact that two peers are communicating  
-
-### Important Notes
-- This is a **demonstration project** for educational purposes
-- Not audited for production security use
-- Messages auto-destruct but may remain in browser memory
-- Screenshot detection can be bypassed by external cameras
-- Use at your own risk for sensitive communications
-
----
-
-## 📁 Project Structure
-
-```
-Stealth-Chat/
-├── server/
-│   ├── server.js          # WebSocket signaling server
-│   ├── package.json       # Server dependencies
-│   └── node_modules/      # Installed packages
-├── client/
-│   ├── index.html         # Main UI
-│   ├── style.css          # Styling
-│   ├── config.js          # 🆕 Server configuration
-│   ├── main.js            # Application logic
-│   ├── webrtc.js          # WebRTC connection manager
-│   ├── crypto.js          # Encryption/decryption
-│   └── screenshotDetector.js  # Security monitoring
-├── QUICK_START.md         # 🆕 Quick deployment guide
-├── DEPLOYMENT_GUIDE.md    # 🆕 Detailed deployment instructions
-└── README.md              # This file
-```
+## 🧪 How to Verify the Security
+*   **Kill the Server**: Once connected, stop the Node.js server. Your chat and video calls will continue working because they are peer-to-peer!
+*   **Try a Screenshot**: Press `PrintScreen` or `Alt+Tab` and watch the privacy overlay activate instantly.
+*   **Check Network Traffic**: Open Developer Tools (F12) -> Network. You won't see your messages being sent to the server.
 
 ---
 
 ## ❓ FAQ
 
-**Q: Do messages get stored anywhere?**  
-A: No. Messages only exist in browser memory and auto-destruct based on your timer setting. There is NO database, `localStorage`, or `sessionStorage` used for chat content.
-
-**Q: Can the server read my messages?**  
-A: No. Messages are encrypted end-to-end. The server only helps establish the connection.
-
-**Q: What happens if I refresh the page?**  
-A: All messages are lost (by design). You'll need to reconnect.
+**Q: Do my messages or files get stored on a server?**  
+A: No. Absolutely nothing is stored on the server. Data lives briefly in browser memory and vanishes when the tab is closed or the timer expires.
 
 **Q: Can more than 2 people join a room?**  
-A: No. This is a P2P demo limited to 2 peers per room.
+A: Yes! The latest updates support multi-peer Group Chats with dynamic security seals to verify who is in the room.
 
-**Q: Does this work over the internet?**  
-A: Yes! Deploy the server to Render/Railway and the client to Netlify. See [QUICK_START.md](./QUICK_START.md) for step-by-step instructions.
+**Q: Can I share files?**  
+A: Yes! In-memory, ephemeral file sharing is supported.
 
 **Q: Is this production-ready?**  
-A: No. This is an educational demonstration. Use established solutions like Signal for real secure messaging.
+A: While it features robust security concepts, this remains an educational project. Use established tools like Signal for real-world life-critical communications.
 
 ---
 
-## 🔮 Future Enhancements
-*   Video/Audio Calling implementation.
-*   File Sharing support via DataChannel.
-*   Identity verification using Digital Signatures.
-*   Group chat support (multi-peer).
-*   Message persistence with local encryption.
-
----
-
-## 📄 License
-
-This project is open source and available for educational purposes.
-
----
-
-## 👨‍💻 Contributing
-
-Feel free to fork, improve, and submit pull requests!
-
----
-
-**Made with ❤️ for privacy and security education**
+**Made with ❤️ for privacy, security, and clean design.**
