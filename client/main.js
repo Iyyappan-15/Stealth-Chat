@@ -583,6 +583,42 @@ document.addEventListener('DOMContentLoaded', () => {
         panelOverlay.classList.add('hidden');
     }
 
+    // ── Mobile: inject header expand/collapse toggle ──────────────────────────
+    // On mobile we show a slim single-row header. A small chevron button
+    // toggles the settings row open/closed so users can access controls
+    // without the header permanently eating screen space.
+    (function injectHeaderExpandToggle() {
+        const isMobile = () => window.innerWidth <= 768;
+        if (!isMobile()) return;
+
+        const chatHeader = document.querySelector('#chat-screen header');
+        if (!chatHeader) return;
+
+        const btn = document.createElement('button');
+        btn.className = 'header-expand-btn';
+        btn.title = 'Toggle settings';
+        btn.setAttribute('aria-label', 'Toggle header settings');
+        btn.innerHTML = '&#8964;'; // ⌤ chevron down
+
+        btn.addEventListener('click', () => {
+            chatHeader.classList.toggle('header-expanded');
+            // Scroll messages to bottom after layout shift
+            if (messagesContainer) {
+                setTimeout(() => {
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }, 300);
+            }
+        });
+
+        // Insert before #leave-btn so it appears in the right order
+        const leaveBtn = document.getElementById('leave-btn');
+        if (leaveBtn) {
+            chatHeader.insertBefore(btn, leaveBtn);
+        } else {
+            chatHeader.appendChild(btn);
+        }
+    })();
+
     async function updateParticipantsPanel(participants) {
         participantsList.innerHTML = '';
         participants.forEach(p => {

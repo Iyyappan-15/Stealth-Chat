@@ -890,79 +890,124 @@ body.hard-obscure .input-area {
         font-size: 0.88rem;
     }
 
-    /* Chat Header — stacked layout */
+    /* ── Chat Header: SLIM single row on mobile ── */
+    /* The header collapses to one 48px row. An expand toggle
+       (added via JS) slides down the settings + seal row.   */
     header {
-        padding: 0.6rem 1rem;
-        display: grid;
-        grid-template-columns: auto 1fr auto;
-        grid-template-rows: auto auto auto;
-        gap: 4px 8px;
+        padding: 0 0.75rem;
+        display: flex;
+        flex-direction: row;
         align-items: center;
+        gap: 6px;
+        min-height: 48px;
+        flex-shrink: 0;
+        overflow: visible;
+        flex-wrap: wrap;   /* allows expanded row to wrap below */
     }
 
-    /* hamburger — column 1, row 1 */
+    /* Hamburger stays on the left */
     .hamburger-btn {
-        grid-column: 1;
-        grid-row: 1;
+        flex-shrink: 0;
+        order: 0;
     }
 
+    /* Room name + status — takes remaining space */
     .header-info {
-        grid-column: 2;
-        grid-row: 1;
+        flex: 1 1 0;
+        min-width: 0;
+        order: 1;
     }
 
     #room-display {
-        font-size: 0.8rem;
+        font-size: 0.78rem;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        max-width: 55vw;
+        max-width: 46vw;
     }
 
     .status-indicator {
-        font-size: 0.6rem;
-        flex-wrap: wrap;
-        gap: 4px;
+        font-size: 0.58rem;
+        gap: 3px;
+        flex-wrap: nowrap;
+        overflow: hidden;
     }
 
-    /* session-timer — column 3, row 1 */
+    /* Session timer: compact, right of status */
     .session-timer {
-        grid-column: 3;
-        grid-row: 1;
-        font-size: 0.6rem;
-        order: unset;
-        width: auto;
+        order: 2;
+        flex-shrink: 0;
+        font-size: 0.58rem;
         white-space: nowrap;
+        opacity: 0.8;
     }
 
-    /* Seal — spans all 3 columns, row 2, centred */
+    /* Seal: small inline badge, no label */
     .session-seal-container {
-        grid-column: 1 / -1;
-        grid-row: 2;
-        justify-self: center;
-        padding: 3px 10px;
+        order: 3;
+        flex-shrink: 0;
+        padding: 2px 6px;
+        border-radius: 8px;
     }
 
     .session-seal {
-        font-size: 1.2rem;
+        font-size: 1rem;
     }
 
     .session-seal-label {
-        font-size: 0.5rem;
+        display: none;   /* hide "SEAL" text, icon is enough */
     }
 
     #session-timer-display {
-        font-size: 0.6rem;
+        font-size: 0.58rem;
     }
 
-    /* Settings row — row 3 */
+    /* Leave button: compact, rightmost */
+    #leave-btn {
+        order: 4;
+        flex-shrink: 0;
+        padding: 5px 8px;
+        font-size: 0.6rem;
+        margin-left: auto;
+    }
+
+    /* Settings group: HIDDEN by default on mobile.
+       JS adds .header-expanded to <header> to reveal it. */
     .settings-group {
-        grid-column: 1 / -1;
-        grid-row: 3;
-        display: flex;
+        order: 10;          /* always last, wraps to second row */
+        width: 100%;        /* full width second row */
+        display: none;      /* hidden by default */
+        flex-wrap: wrap;
         gap: 6px;
         align-items: center;
-        flex-wrap: wrap;
+        padding: 4px 0 6px;
+        border-top: 1px solid var(--glass-border);
+        margin-top: 2px;
+    }
+
+    /* When header is expanded, show the settings row */
+    header.header-expanded .settings-group {
+        display: flex;
+    }
+
+    /* Chevron toggle button (injected by JS) */
+    .header-expand-btn {
+        order: 5;
+        background: none;
+        border: none;
+        color: #666;
+        padding: 4px 6px;
+        font-size: 0.75rem;
+        cursor: pointer;
+        flex-shrink: 0;
+        transform: rotate(0deg);
+        transition: transform 0.25s ease;
+        box-shadow: none;
+    }
+
+    header.header-expanded .header-expand-btn {
+        transform: rotate(180deg);
+        color: var(--secondary-color);
     }
 
     .setting-item {
@@ -991,20 +1036,15 @@ body.hard-obscure .input-area {
         font-size: 0.65rem;
     }
 
-    #leave-btn {
-        padding: 5px 10px;
-        font-size: 0.65rem;
-        margin-left: auto;
-    }
-
-    /* Messages — flex-grow fills all remaining space between header & input */
+    /* Messages — fills all remaining space, scrolls internally */
     #messages-container {
         padding: 0.75rem;
         gap: 12px;
         flex: 1 1 0;
-        min-height: 0;   /* crucial: allows flex child to shrink below content size */
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
+        min-height: 0;
+        overflow-y: scroll;               /* 'scroll' forces track on iOS */
+        -webkit-overflow-scrolling: touch; /* iOS momentum scroll */
+        overscroll-behavior-y: contain;   /* stop page bouncing at top/bottom */
     }
 
     .message {
