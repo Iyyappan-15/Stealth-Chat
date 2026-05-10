@@ -65,12 +65,14 @@ body {
     -webkit-overflow-scrolling: touch;
 }
 
-/* Chat screen — locked so only the messages area scrolls.
-   Uses 100dvh so the layout shrinks when the mobile keyboard opens,
-   keeping the input bar always on-screen. */
+/* Chat screen — height is set to window.innerHeight by JS on activation.
+   svh (small viewport height) is the CSS starting point — it represents
+   the viewport with ALL browser chrome visible, which is the safest value
+   for Android browsers that have bottom toolbars (Brave, Chrome, etc.).
+   The JS override immediately replaces this with the exact pixel value. */
 #chat-screen {
-    height: 100dvh;
-    max-height: 100dvh;
+    height: 100svh;          /* small viewport height — browser toolbar included */
+    max-height: 100svh;
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -79,8 +81,6 @@ body {
     left: 0;
     right: 0;
     bottom: 0;
-    /* iOS momentum scroll fix */
-    -webkit-overflow-scrolling: touch;
 }
 
 .container {
@@ -972,11 +972,12 @@ body.hard-obscure .input-area {
     }
 
     /* Settings group: HIDDEN by default on mobile.
-       JS adds .header-expanded to <header> to reveal it. */
+       JS adds .header-expanded to <header> to reveal it.
+       !important overrides any desktop rule that sets display:flex. */
     .settings-group {
-        order: 10;          /* always last, wraps to second row */
-        width: 100%;        /* full width second row */
-        display: none;      /* hidden by default */
+        order: 10;
+        width: 100%;
+        display: none !important;  /* hidden by default — chevron reveals it */
         flex-wrap: wrap;
         gap: 6px;
         align-items: center;
@@ -985,9 +986,9 @@ body.hard-obscure .input-area {
         margin-top: 2px;
     }
 
-    /* When header is expanded, show the settings row */
+    /* When header is expanded, override the !important above */
     header.header-expanded .settings-group {
-        display: flex;
+        display: flex !important;
     }
 
     /* Chevron toggle button (injected by JS) */

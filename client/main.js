@@ -203,6 +203,18 @@ document.addEventListener('DOMContentLoaded', () => {
         loginScreen.classList.add('hidden');
         chatScreen.classList.remove('hidden');
 
+        // ── Set exact height immediately on activation ─────────────────────
+        // dvh/svh units are unreliable on some Android browsers (Brave, Chrome
+        // with bottom toolbar). window.innerHeight is always the actual usable
+        // height, so we use that as the definitive value.
+        const snapChatHeight = () => {
+            chatScreen.style.height = window.innerHeight + 'px';
+        };
+        snapChatHeight();
+        // Re-snap after a short delay in case the browser reflows
+        setTimeout(snapChatHeight, 150);
+        setTimeout(snapChatHeight, 500);
+
         const modeLabel = chatMode === 'group' ? 'GROUP' : 'SECURE';
         roomDisplay.textContent = `CHANNEL: ${modeLabel}_${roomId.toUpperCase()}`;
 
@@ -845,27 +857,28 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     window.addEventListener('resize', () => {
+        // Always update chat screen height on resize (handles toolbar show/hide)
+        if (!chatScreen.classList.contains('hidden')) {
+            chatScreen.style.height = window.innerHeight + 'px';
+        }
         if (messagesContainer) messagesContainer.scrollTop = messagesContainer.scrollHeight;
     });
 
-    // ── Visual Viewport API: mobile keyboard resize fallback ──────────────────
-    // dvh + interactive-widget handles this on modern browsers. This is the
-    // fallback for older Android/iOS that overlay the keyboard without shrinking.
+    // ── Visual Viewport API: handles keyboard open/close on mobile ────────────
     if (window.visualViewport) {
-        const onViewportChange = () => {
-            // Only clamp chat screen — login/type-select handle their own scrolling
+        window.visualViewport.addEventListener('resize', () => {
             if (!chatScreen.classList.contains('hidden')) {
-                chatScreen.style.height = window.visualViewport.height + 'px';
-                // Scroll messages to keep latest visible
+                // Use visualViewport.height when keyboard is open (it shrinks)
+                // but clamp to window.innerHeight so we never exceed the screen
+                const h = Math.min(window.visualViewport.height, window.innerHeight);
+                chatScreen.style.height = h + 'px';
                 if (messagesContainer) {
                     messagesContainer.scrollTop = messagesContainer.scrollHeight;
                 }
             } else {
-                // Reset when returning to login/type-select
                 chatScreen.style.height = '';
             }
-        };
-        window.visualViewport.addEventListener('resize', onViewportChange);
+        });
     }
 
     let typingTimeout;
