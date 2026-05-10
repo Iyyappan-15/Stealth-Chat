@@ -93,6 +93,19 @@
                     <div class="room-id-value" id="generated-room-id">---</div>
                     <button id="copy-room-btn" class="copy-btn" disabled><span class="svg-icon icon-sm"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg></span> COPY</button>
                 </div>
+
+                <!-- Session Duration -->
+                <div class="session-duration-group">
+                    <label class="field-label" for="session-duration-create">SESSION DURATION</label>
+                    <div class="session-duration-row">
+                        <input type="number" id="session-duration-create" class="session-duration-input"
+                               value="10" min="1" max="480"
+                               autocomplete="off" inputmode="numeric">
+                        <span class="session-duration-unit">MIN</span>
+                    </div>
+                    <p class="session-duration-hint">Session auto-destroys after this time · max 480 min</p>
+                </div>
+
                 <button id="generate-room-btn" class="action-btn"><span class="svg-icon icon-sm"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6"/><path d="M15.5 7.5l3 3L22 7l-3-3"/></svg></span> GENERATE SECURE ROOM</button>
                 <button id="create-join-btn" class="action-btn secondary" style="display:none;">ESTABLISH SECURE LINK</button>
             </div>
@@ -103,8 +116,21 @@
                 <div class="input-group">
                     <input type="text" id="room-input" placeholder="ENTER ROOM ID" autocomplete="off"
                         autocorrect="off" autocapitalize="characters" spellcheck="false" inputmode="text">
-                    <button id="join-room-btn" class="action-btn">ESTABLISH SECURE LINK</button>
                 </div>
+
+                <!-- Session Duration -->
+                <div class="session-duration-group">
+                    <label class="field-label" for="session-duration-join">SESSION DURATION</label>
+                    <div class="session-duration-row">
+                        <input type="number" id="session-duration-join" class="session-duration-input"
+                               value="10" min="1" max="480"
+                               autocomplete="off" inputmode="numeric">
+                        <span class="session-duration-unit">MIN</span>
+                    </div>
+                    <p class="session-duration-hint">Session auto-destroys after this time · max 480 min</p>
+                </div>
+
+                <button id="join-room-btn" class="action-btn">ESTABLISH SECURE LINK</button>
             </div>
 
             <p class="status" id="login-status"></p>

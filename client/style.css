@@ -254,6 +254,69 @@ button:active {
     background: var(--accent-color);
 }
 
+/* Session Duration Group */
+.session-duration-group {
+    margin: 1.2rem 0 0.6rem;
+}
+
+.session-duration-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-top: 0.5rem;
+}
+
+.session-duration-input {
+    flex: 1;
+    width: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--accent-color);
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    letter-spacing: 1px;
+    text-align: center;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    /* hide default number spinners */
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+.session-duration-input::-webkit-outer-spin-button,
+.session-duration-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.session-duration-input:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.15);
+}
+
+.session-duration-unit {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--secondary-color);
+    background: rgba(0, 229, 255, 0.08);
+    border: 1px solid rgba(0, 229, 255, 0.2);
+    border-radius: 6px;
+    padding: 6px 12px;
+    white-space: nowrap;
+}
+
+.session-duration-hint {
+    font-size: 0.68rem;
+    color: #555;
+    margin-top: 0.45rem;
+    letter-spacing: 0.5px;
+}
+
 .status {
     margin-top: 1rem;
     font-size: 0.8rem;

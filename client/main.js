@@ -64,6 +64,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const panelOverlay      = document.getElementById('panel-overlay');
     const participantsList  = document.getElementById('participants-list');
     const participantsCount = document.getElementById('participants-count');
+    const sessionDurationCreate = document.getElementById('session-duration-create');
+    const sessionDurationJoin   = document.getElementById('session-duration-join');
 
     // ─── State ───────────────────────────────────────────────────────────────
     let chatMode        = null;  // 'p2p' | 'group'
@@ -84,7 +86,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let groupParticipantCount = 0;    // Last known participant count
     let groupSealReady       = false; // Whether initial group seal has been shown
     let autoDestructTime = 10;
-    let sessionTimeLeft  = 600;
+    let sessionTimeLeft  = 600;       // seconds — overwritten from user input in joinRoom()
+    let sessionTimerRef  = null;      // interval handle so we can cancel it on clear
     let isDecoyActive    = false;
     let callSeconds      = 0;
     let callTimerInterval = null;
@@ -212,6 +215,11 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             initP2PNetworking();
         }
+
+        // Read user-entered session duration (minutes), clamp 1–480, convert to seconds
+        const durationInput = currentMode === 'create' ? sessionDurationCreate : sessionDurationJoin;
+        const chosenMins = Math.min(480, Math.max(1, parseInt(durationInput.value) || 10));
+        sessionTimeLeft = chosenMins * 60;
 
         startSessionTimer();
     }
@@ -357,6 +365,10 @@ document.addEventListener('DOMContentLoaded', () => {
         connectionStatus.classList.add('disconnected');
         encryptionStatus.classList.add('hidden');
         showSystemAlert(Icons.html('warning', 'icon-xs') + " PEER CONNECTION LOST — RETRYING...");
+
+        // Vanish the session seal — it is no longer valid without a live peer
+        clearSessionSeal();
+
         // Show connecting state after a moment (WebRTC will attempt re-pairing)
         setTimeout(() => {
             if (!webrtcManager || !webrtcManager.p2pConnected) {
@@ -546,6 +558,10 @@ document.addEventListener('DOMContentLoaded', () => {
         connectionStatus.classList.add('disconnected');
         encryptionStatus.classList.add('hidden');
         showSystemAlert(Icons.html('warning', 'icon-xs') + " GROUP CONNECTION LOST — RECONNECTING...");
+
+        // Vanish the session seal — it is no longer valid without an active channel
+        clearSessionSeal();
+
         // Transition back to connecting state after a moment
         setTimeout(() => setStatusConnecting('RECONNECTING...'), 1500);
     }
@@ -1039,14 +1055,35 @@ document.addEventListener('DOMContentLoaded', () => {
     // SECURITY FEATURES
     // ─────────────────────────────────────────────────────────────────────────
 
+    /** Hides and resets the session seal display. Call on disconnect or terminate. */
+    function clearSessionSeal() {
+        sessionSealEl.innerHTML = '';
+        sessionSealContainer.classList.add('hidden');
+        sessionSealContainer.classList.remove('seal-mismatch', 'seal-pulse');
+        currentSeal = null;
+    }
+
     function startSessionTimer() {
-        const timer = setInterval(() => {
+        // sessionTimeLeft is already set (in seconds) by joinRoom() from user input
+        const totalSeconds = sessionTimeLeft;
+
+        // Update the display label immediately so user sees the chosen time
+        const initMins = Math.floor(totalSeconds / 60);
+        const initSecs = totalSeconds % 60;
+        sessionTimerDisplay.textContent =
+            `SESSION EXPIRES: ${initMins}:${initSecs.toString().padStart(2, '0')}`;
+
+        if (sessionTimerRef) clearInterval(sessionTimerRef); // cancel any previous timer
+
+        sessionTimerRef = setInterval(() => {
             sessionTimeLeft--;
             const minutes = Math.floor(sessionTimeLeft / 60);
             const seconds = sessionTimeLeft % 60;
-            sessionTimerDisplay.textContent = `SESSION EXPIRES: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+            sessionTimerDisplay.textContent =
+                `SESSION EXPIRES: ${minutes}:${seconds.toString().padStart(2, '0')}`;
             if (sessionTimeLeft <= 0) {
-                clearInterval(timer);
+                clearInterval(sessionTimerRef);
+                sessionTimerRef = null;
                 terminateSession("SESSION EXPIRED - DATA WIPED");
             }
         }, 1000);
@@ -1062,10 +1099,7 @@ document.addEventListener('DOMContentLoaded', () => {
         panicScreen.classList.add('active');
 
         // Clear and hide the session seal immediately
-        sessionSealEl.innerHTML = '';
-        sessionSealContainer.classList.add('hidden');
-        sessionSealContainer.classList.remove('seal-mismatch', 'seal-pulse');
-        currentSeal = null;
+        clearSessionSeal();
 
         if (webrtcManager) webrtcManager.sendMessage(JSON.stringify({ type: 'WIPE_EVERYTHING' }));
         // Group: no need to broadcast, the relay would expose panic mode
@@ -1093,11 +1127,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (webrtcManager) webrtcManager.destroy();
         if (groupManager) groupManager.destroy();
 
-        // Immediately clear and hide the session seal before leaving
-        sessionSealEl.innerHTML = '';
-        sessionSealContainer.classList.add('hidden');
-        sessionSealContainer.classList.remove('seal-mismatch', 'seal-pulse');
-        currentSeal = null;
+        // Stop timer and clear seal before leaving
+        if (sessionTimerRef) { clearInterval(sessionTimerRef); sessionTimerRef = null; }
+        clearSessionSeal();
 
         alert(reason);
         window.location.reload();
