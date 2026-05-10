@@ -168,15 +168,15 @@ document.addEventListener('DOMContentLoaded', () => {
         generatedRoomId.textContent = generatedRoom;
         copyRoomBtn.disabled = false;
         createJoinBtn.style.display = 'block';
-        generateRoomBtn.textContent = '🔄 REGENERATE ROOM';
+        generateRoomBtn.innerHTML = Icons.html('refresh', 'icon-sm') + ' REGENERATE ROOM';
         loginStatus.textContent = '';
     });
 
     copyRoomBtn.addEventListener('click', async () => {
         try {
             await navigator.clipboard.writeText(generatedRoom);
-            copyRoomBtn.textContent = '✓ COPIED!';
-            setTimeout(() => { copyRoomBtn.textContent = '📋 COPY'; }, 2000);
+            copyRoomBtn.innerHTML = Icons.html('check', 'icon-sm') + ' COPIED!';
+            setTimeout(() => { copyRoomBtn.innerHTML = Icons.html('clipboard', 'icon-sm') + ' COPY'; }, 2000);
         } catch (err) {
             loginStatus.textContent = 'Failed to copy to clipboard';
             loginStatus.classList.add('error');
@@ -255,7 +255,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             decoyBtn.addEventListener('click', () => {
                 isDecoyActive = !isDecoyActive;
-                decoyBtn.textContent = isDecoyActive ? "🎭 STOP DECOY" : "🎭 DECOY";
+                decoyBtn.innerHTML = isDecoyActive
+                    ? (Icons.html('mask', 'icon-sm') + ' STOP DECOY')
+                    : (Icons.html('mask', 'icon-sm') + ' DECOY');
                 if (isDecoyActive) startDecoyMessages();
                 else showSystemAlert("DECOY MODE DISABLED");
             });
@@ -322,7 +324,7 @@ document.addEventListener('DOMContentLoaded', () => {
         connectionStatus.classList.remove('connected', 'connecting');
         connectionStatus.classList.add('disconnected');
         encryptionStatus.classList.add('hidden');
-        showSystemAlert("⚠ PEER CONNECTION LOST — RETRYING...");
+        showSystemAlert(Icons.html('warning', 'icon-xs') + " PEER CONNECTION LOST — RETRYING...");
         // Show connecting state after a moment (WebRTC will attempt re-pairing)
         setTimeout(() => {
             if (!webrtcManager || !webrtcManager.p2pConnected) {
@@ -338,7 +340,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (payload.type === 'KEY_EXCHANGE') {
                 await cryptoManager.deriveSessionKey(payload.key);
                 encryptionStatus.classList.remove('hidden');
-                showSystemAlert(`✅ CHANNEL SECURED WITH: ${payload.identity}`);
+                showSystemAlert(Icons.html('shieldCheck', 'icon-xs') + ` CHANNEL SECURED WITH: ${payload.identity}`);
 
                 // Generate and show seal
                 const seal = await cryptoManager.generateSessionSeal();
@@ -370,7 +372,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 triggerSecurityOverlay("PEER BREACH DETECTED - DATA PURGED");
             }
             else if (payload.type === 'CALL_OFFER' && mediaCallManager) {
-                showSystemAlert('📞 INCOMING ENCRYPTED CALL...');
+                showSystemAlert(Icons.html('phone', 'icon-xs') + ' INCOMING ENCRYPTED CALL...');
                 await mediaCallManager.handleCallOffer(payload.sdp, webrtcManager.getPeerConnection());
             }
             else if (payload.type === 'CALL_ANSWER' && mediaCallManager) {
@@ -430,7 +432,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Wire up attach button for group mode
         attachBtn.addEventListener('click', () => {
             if (!cryptoManager || !cryptoManager.sessionKey) {
-                showSystemAlert('⚠ WAIT FOR GROUP ENCRYPTION TO ESTABLISH');
+                showSystemAlert(Icons.html('warning', 'icon-xs') + ' WAIT FOR GROUP ENCRYPTION TO ESTABLISH');
                 return;
             }
             if (screenshotDetector) screenshotDetector.suppressBlur(4000);
@@ -462,12 +464,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 progressFill.style.width = '0%';
             }, 800);
 
-            if (!success) showSystemAlert('⚠ FILE SEND FAILED');
+            if (!success) showSystemAlert(Icons.html('warning', 'icon-xs') + ' FILE SEND FAILED');
         });
 
         // Calls not supported in group relay mode — show clear message
         callBtn.addEventListener('click', () => {
-            showSystemAlert('⚠ AUDIO CALLS ARE P2P ONLY — NOT AVAILABLE IN GROUP MODE');
+            showSystemAlert(Icons.html('warning', 'icon-xs') + ' AUDIO CALLS ARE P2P ONLY — NOT AVAILABLE IN GROUP MODE');
         });
 
         await groupManager.connect(myRoomId, myName, cryptoManager);
@@ -478,7 +480,7 @@ document.addEventListener('DOMContentLoaded', () => {
         connectionStatus.classList.remove('disconnected', 'connecting');
         connectionStatus.classList.add('connected');
         encryptionStatus.classList.remove('hidden');
-        showSystemAlert(`✅ GROUP CHANNEL SECURED | ${name}`);
+        showSystemAlert(Icons.html('shieldCheck', 'icon-xs') + ` GROUP CHANNEL SECURED | ${name}`);
 
         // Reset seal state — seal will be shown when participants-list arrives
         groupSealReady = false;
@@ -490,12 +492,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function onGroupParticipantJoined(name, id) {
-        showSystemAlert(`🟢 ${name} JOINED THE CHANNEL`);
+        showSystemAlert(Icons.html('userPlus', 'icon-xs') + ` ${name} JOINED THE CHANNEL`);
         // Seal refresh is handled in updateParticipantsPanel when participants-list arrives
     }
 
     function onGroupParticipantLeft(name, id) {
-        showSystemAlert(`🔴 ${name} LEFT THE CHANNEL`);
+        showSystemAlert(Icons.html('userMinus', 'icon-xs') + ` ${name} LEFT THE CHANNEL`);
         // Seal refresh is handled in updateParticipantsPanel when participants-list arrives
     }
 
@@ -511,7 +513,7 @@ document.addEventListener('DOMContentLoaded', () => {
         connectionStatus.classList.remove('connected', 'connecting');
         connectionStatus.classList.add('disconnected');
         encryptionStatus.classList.add('hidden');
-        showSystemAlert("⚠ GROUP CONNECTION LOST — RECONNECTING...");
+        showSystemAlert(Icons.html('warning', 'icon-xs') + " GROUP CONNECTION LOST — RECONNECTING...");
         // Transition back to connecting state after a moment
         setTimeout(() => setStatusConnecting('RECONNECTING...'), 1500);
     }
@@ -611,8 +613,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function showSessionSeal(seal) {
         currentSeal = seal;
 
-        // Header mini-display: show the first emoji of the real cryptographic fingerprint
-        sessionSealEl.textContent = _sealHeaderEmoji();
+        // Header mini-display: show shield icon (always consistent)
+        sessionSealEl.innerHTML = Icons.html('shield', 'icon-md seal-icon');
         sessionSealContainer.classList.remove('hidden', 'seal-mismatch');
         sessionSealContainer.classList.add('seal-pulse');
         setTimeout(() => sessionSealContainer.classList.remove('seal-pulse'), 2000);
@@ -621,7 +623,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sealPopupEmoji.textContent = seal;
         sealPopup.classList.remove('hidden');
 
-        showSystemAlert(`🦭 SESSION SEAL ESTABLISHED — Compare the code with your peer!`);
+        showSystemAlert(Icons.html('shield', 'icon-xs') + ' SESSION SEAL ESTABLISHED — Compare the code with your peer!');
     }
 
     /**
@@ -632,8 +634,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function refreshGroupSeal(seal, memberJoined) {
         currentSeal = seal;
 
-        // Update header badge emoji
-        sessionSealEl.textContent = _sealHeaderEmoji();
+        // Update header badge icon
+        sessionSealEl.innerHTML = Icons.html('shield', 'icon-md seal-icon');
         sessionSealContainer.classList.remove('hidden', 'seal-mismatch');
         sessionSealContainer.classList.add('seal-pulse');
         setTimeout(() => sessionSealContainer.classList.remove('seal-pulse'), 2000);
@@ -645,22 +647,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const action = memberJoined
             ? 'NEW MEMBER JOINED — SEAL REFRESHED & VERIFIED'
             : 'MEMBER DEPARTED — SEAL REFRESHED';
-        showSystemAlert(`🔄 ${action}`);
+        showSystemAlert(Icons.html('refresh', 'icon-xs') + ' ' + action);
     }
 
     function verifySeal(peerSeal) {
         if (!currentSeal) return;
         if (peerSeal !== currentSeal) {
-            // MITM DETECTED — Change seal emoji to warning sign
-            sessionSealEl.textContent = '⚠️';
+            // MITM DETECTED — Change seal icon to warning sign
+            sessionSealEl.innerHTML = Icons.html('warning', 'icon-md seal-warning');
             sessionSealContainer.classList.add('seal-mismatch');
-            showSystemAlert(`🚨 SEAL MISMATCH — POSSIBLE MAN-IN-THE-MIDDLE ATTACK DETECTED!`);
+            showSystemAlert(Icons.html('alertOctagon', 'icon-xs') + ' SEAL MISMATCH — POSSIBLE MAN-IN-THE-MIDDLE ATTACK DETECTED!');
             triggerSecurityOverlay("SESSION SEAL MISMATCH — POSSIBLE MAN-IN-THE-MIDDLE ATTACK");
         } else {
-            // Seals match — restore real fingerprint emoji and confirm
-            sessionSealEl.textContent = _sealHeaderEmoji();
+            // Seals match — restore shield icon and confirm
+            sessionSealEl.innerHTML = Icons.html('shield', 'icon-md seal-icon');
             sessionSealContainer.classList.remove('seal-mismatch');
-            showSystemAlert(`✅ SEAL VERIFIED — Connection is secure.`);
+            showSystemAlert(Icons.html('shieldCheck', 'icon-xs') + ' SEAL VERIFIED — Connection is secure.');
         }
     }
 
@@ -691,7 +693,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const s = String(callSeconds % 60).padStart(2, '0');
                     callTimerEl.textContent = `${m}:${s}`;
                 }, 1000);
-                showSystemAlert('📞 SECURE CALL STARTED');
+                showSystemAlert(Icons.html('phone', 'icon-xs') + ' SECURE CALL STARTED');
             },
             () => {
                 callOverlay.classList.add('hidden');
@@ -700,7 +702,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 clearInterval(callTimerInterval);
                 callTimerInterval = null;
                 callTimerEl.textContent = '00:00';
-                showSystemAlert('📵 CALL ENDED — NO TRACE');
+                showSystemAlert(Icons.html('phoneOff', 'icon-xs') + ' CALL ENDED — NO TRACE');
             },
             (msg) => webrtcManager.sendMessage(msg)
         );
@@ -728,7 +730,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 mediaCallManager.endCall(true);
             } else {
                 if (!cryptoManager || !cryptoManager.sessionKey) {
-                    showSystemAlert('⚠ WAIT FOR ENCRYPTION HANDSHAKE');
+                    showSystemAlert(Icons.html('warning', 'icon-xs') + ' WAIT FOR ENCRYPTION HANDSHAKE');
                     return;
                 }
                 mediaCallManager.startCall(webrtcManager.getPeerConnection());
@@ -739,7 +741,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         attachBtn.addEventListener('click', () => {
             if (!cryptoManager || !cryptoManager.sessionKey) {
-                showSystemAlert('⚠ WAIT FOR ENCRYPTION HANDSHAKE');
+                showSystemAlert(Icons.html('warning', 'icon-xs') + ' WAIT FOR ENCRYPTION HANDSHAKE');
                 return;
             }
             // Suppress the stealth blur detector while the OS file dialog is open
@@ -877,7 +879,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const isAudio = mimeType && mimeType.startsWith('audio/');
         const isImage = mimeType && mimeType.startsWith('image/');
         const isPDF   = mimeType === 'application/pdf';
-        const typeIcon  = isVideo ? '🎬' : isAudio ? '🎵' : isImage ? '🖼️' : isPDF ? '📄' : '📎';
+        const typeIcon  = isVideo ? 'video' : isAudio ? 'music' : isImage ? 'image' : isPDF ? 'file' : 'paperclip';
         const typeLabel = isVideo ? 'VIDEO' : isAudio ? 'AUDIO' : isImage ? 'IMAGE' : isPDF ? 'PDF' : 'FILE';
         const displayName = fileName || ('secure_' + typeLabel.toLowerCase());
 
@@ -911,10 +913,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const cardTop = document.createElement('div');
         cardTop.className = 'secure-file-top';
         cardTop.innerHTML = `
-            <div class="secure-file-icon">${typeIcon}</div>
+            <div class="secure-file-icon">${Icons.html(typeIcon, 'icon-lg')}</div>
             <div class="secure-file-info">
                 <div class="secure-file-name">${escapeHtml(displayName.length > 26 ? displayName.substring(0,23)+'...' : displayName)}</div>
-                <div class="secure-file-meta">🔒 AES-256-GCM &middot; ${typeLabel} &middot; In-Memory Only</div>
+                <div class="secure-file-meta">${Icons.html('lockSmall', 'icon-xs')} AES-256-GCM &middot; ${typeLabel} &middot; In-Memory Only</div>
             </div>`;
 
         const btnRow = document.createElement('div');
@@ -923,7 +925,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // VIEW / HIDE button
         const viewBtn = document.createElement('button');
         viewBtn.className = 'secure-file-btn view';
-        viewBtn.textContent = '👁 VIEW';
+        viewBtn.innerHTML = Icons.html('eye', 'icon-sm') + ' VIEW';
         let shown = false;
         viewBtn.addEventListener('click', () => {
             if (!previewEl) {
@@ -932,13 +934,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             shown = !shown;
             previewEl.style.display = shown ? 'block' : 'none';
-            viewBtn.textContent = shown ? '🙈 HIDE' : '👁 VIEW';
+            viewBtn.innerHTML = shown ? (Icons.html('eyeOff', 'icon-sm') + ' HIDE') : (Icons.html('eye', 'icon-sm') + ' VIEW');
         });
 
         // SAVE / DOWNLOAD button
         const dlBtn = document.createElement('button');
         dlBtn.className = 'secure-file-btn save';
-        dlBtn.textContent = '⬇ SAVE';
+        dlBtn.innerHTML = Icons.html('download', 'icon-sm') + ' SAVE';
         dlBtn.addEventListener('click', () => {
             const a = document.createElement('a');
             a.href = blobUrl;
