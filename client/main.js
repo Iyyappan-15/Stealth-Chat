@@ -813,24 +813,23 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ── Visual Viewport API: mobile keyboard resize fallback ──────────────────
-    // dvh handles this natively on modern browsers; this is the fallback for
-    // older Android Chrome / iOS Safari versions where the keyboard overlays
-    // instead of resizing the layout.
+    // dvh + interactive-widget handles this on modern browsers. This is the
+    // fallback for older Android/iOS that overlay the keyboard without shrinking.
     if (window.visualViewport) {
         const onViewportChange = () => {
-            const vvh = window.visualViewport.height;
-            const vvOffset = window.visualViewport.offsetTop;
-            // Clamp chat screen to the actual visible height
-            chatScreen.style.height = vvh + 'px';
-            chatScreen.style.top = vvOffset + 'px';
-            chatScreen.style.bottom = 'auto';
-            // Always keep latest messages visible after keyboard opens
-            if (messagesContainer) {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            // Only clamp chat screen — login/type-select handle their own scrolling
+            if (!chatScreen.classList.contains('hidden')) {
+                chatScreen.style.height = window.visualViewport.height + 'px';
+                // Scroll messages to keep latest visible
+                if (messagesContainer) {
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }
+            } else {
+                // Reset when returning to login/type-select
+                chatScreen.style.height = '';
             }
         };
         window.visualViewport.addEventListener('resize', onViewportChange);
-        window.visualViewport.addEventListener('scroll', onViewportChange);
     }
 
     let typingTimeout;

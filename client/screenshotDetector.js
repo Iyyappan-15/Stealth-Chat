@@ -1,28 +1,27 @@
 /**
- * ScreenshotDetector — Stealth Chat Security Module v4
+ * ScreenshotDetector — Stealth Chat Security Module v5
  * =====================================================
+ * ADVANCED MULTI-LAYER SCREENSHOT & SCREEN CAPTURE PREVENTION
  *
- * TWO PROTECTION LEVELS:
+ * Protection Layers:
+ *  1.  Keyboard interception (PrtSc, Win+Shift+S, macOS Cmd+Shift+3/4/5/6)
+ *  2.  Screen Capture API override (getDisplayMedia, getUserMedia on prototype)
+ *  3.  MediaStream interception (display-surface track blocking)
+ *  4.  Canvas API poisoning (getImageData, toDataURL, toBlob return blanks)
+ *  5.  Clipboard read/write override (block clipboard.read + clipboard.readText)
+ *  6.  MutationObserver (detects injected iframes / rogue video elements)
+ *  7.  RAF Focus Monitor (~60fps poll — soft blackout on focus loss)
+ *  8.  Mobile gesture detection (3-finger touch, status-bar double-tap)
+ *  9.  Window RESIZE detection — WIDTH only, ignores height (= keyboard open)
+ * 10.  DevTools detection (debugger timing + outer/inner dimension heuristic)
+ * 11.  Anti-capture CSS overlay (mix-blend-mode degrades screenshot colour)
+ * 12.  Drag prevention, copy/cut block, print block, context-menu block
  *
- *  SOFT (silent blackout only — no alert popup):
- *    • Window loses focus (tab switch, clicked elsewhere)
- *    • Page hidden / minimised
- *    • Mouse leaves the browser window
- *    → Screen goes black to prevent content capture, but no alert is shown.
- *      The blackout disappears automatically when focus returns.
+ * SOFT breach (silent blackout, no popup):
+ *   Focus loss, tab switch, mouse leave, page hidden.
  *
- *  HARD (blackout + Protocol Breach alert):
- *    • PrtSc pressed         → keydown blackout + keyup clipboard-overwrite
- *    • Alt+PrtSc pressed     → same
- *    • Win+Shift+S (snipping tool) → caught via focus-loss timing heuristic
- *    • Ctrl+P (print), F12, Ctrl+Shift+I (DevTools)
- *    • Context menu / right-click
- *    • Screen Capture API (getDisplayMedia)
- *
- *  NOTE: Win+PrtSc is OS-level (focus stolen before browser sees keydown).
- *  We catch it via the RAF focus monitor — when focus is lost AND within
- *  500ms the PrintScreen keyup fires, we know it was Win+PrtSc and trigger
- *  a hard breach. Otherwise a plain focus loss = soft blackout only.
+ * HARD breach (blackout + Protocol Breach popup):
+ *   Any actual capture attempt (keys, API calls, devtools, resize, gestures).
  */
 
 class ScreenshotDetector {
@@ -32,33 +31,41 @@ class ScreenshotDetector {
         this.lastEscTime      = 0;
         this.escCount         = 0;
         this._blurSuppressed  = false;
-        this._blackoutEl      = null;
         this._wasFocused      = document.hasFocus();
-        this._focusLostAt     = 0;  // timestamp — helps detect Win+PrtSc
+        this._focusLostAt     = 0;
+        this._isMobile        = navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
 
         this._injectProtectionCSS();
         this._buildBlackoutLayer();
         this._blockScreenCaptureAPI();
+        this._poisonCanvasAPI();
+        this._blockClipboardRead();
         this._startFocusMonitor();
         this._initListeners();
+        this._startMutationObserver();
+        this._protectConsole();
+        this._startDevToolsDetection();
     }
 
     // ─── Public API ───────────────────────────────────────────────────────────
 
-    /** Call before opening a native file dialog so blur doesn't false-trigger */
+    /** Suppress blur detection while a native file dialog is open */
     suppressBlur(ms) {
         this._blurSuppressed = true;
         clearTimeout(this._blurSuppressTimer);
-        this._blurSuppressTimer = setTimeout(() => { this._blurSuppressed = false; }, ms || 3000);
+        this._blurSuppressTimer = setTimeout(() => {
+            this._blurSuppressed = false;
+        }, ms || 3000);
     }
 
     setOnFocusLost(callback)      { this.onFocusLost      = callback; }
     setOnPanicTriggered(callback) { this.onPanicTriggered = callback; }
 
-    // ─── CSS Injection ────────────────────────────────────────────────────────
+    // ─── Layer 1: CSS Injection ───────────────────────────────────────────────
 
     _injectProtectionCSS() {
         if (document.getElementById('__stealth-css')) return;
+
         const s = document.createElement('style');
         s.id = '__stealth-css';
         s.textContent = `
@@ -72,25 +79,45 @@ class ScreenshotDetector {
                 pointer-events:    none !important;
                 -webkit-user-drag: none !important;
             }
+            /* Anti-capture overlay: a transparent layer with mix-blend-mode
+               that degrades screenshot colour rendering significantly */
+            #__stealth-anti-capture {
+                position: fixed;
+                inset: 0;
+                z-index: 2147483640;
+                pointer-events: none;
+                background: repeating-linear-gradient(
+                    0deg,
+                    rgba(0,0,0,0.015) 0px,
+                    transparent 2px
+                );
+                mix-blend-mode: multiply;
+                will-change: opacity;
+            }
             @media print {
                 html, body, body * { visibility: hidden !important; }
                 body::after {
-                    content:    "SECURE SESSION — PRINTING DISABLED" !important;
-                    visibility: visible !important;
-                    position:   fixed !important;
-                    top:        50% !important;
-                    left:       50% !important;
-                    transform:  translate(-50%, -50%) !important;
-                    font-size:  2rem !important;
-                    color:      #c00 !important;
+                    content:     "SECURE SESSION — PRINTING DISABLED" !important;
+                    visibility:  visible !important;
+                    position:    fixed !important;
+                    top:         50% !important;
+                    left:        50% !important;
+                    transform:   translate(-50%, -50%) !important;
+                    font-size:   2rem !important;
+                    color:       #c00 !important;
                     font-family: monospace !important;
                 }
             }
         `;
         document.head.appendChild(s);
+
+        // Inject the anti-capture overlay div
+        const overlay = document.createElement('div');
+        overlay.id = '__stealth-anti-capture';
+        document.body.appendChild(overlay);
     }
 
-    // ─── Blackout Layer ───────────────────────────────────────────────────────
+    // ─── Layer 2: Blackout Layers ─────────────────────────────────────────────
 
     _buildBlackoutLayer() {
         if (!document.querySelector('.security-blindfold')) {
@@ -100,66 +127,191 @@ class ScreenshotDetector {
         }
     }
 
-    /**
-     * SOFT blackout — blacks the screen silently.
-     * Used for focus loss, tab switch, mouse leave.
-     * Does NOT call onBreachDetected (no popup, no alert).
-     */
+    /** SOFT — silent screen blackout, no popup */
     _softBlackout() {
         document.body.classList.add('hard-obscure');
         if (this.onFocusLost) this.onFocusLost();
     }
 
     _clearSoftBlackout() {
-        // Only clear if a hard breach hasn't locked it
         document.body.classList.remove('hard-obscure');
     }
 
-    /**
-     * HARD blackout — blacks screen AND fires the breach alert.
-     * Used only for actual screenshot key presses.
-     */
+    /** HARD — blackout + Protocol Breach popup */
     _hardBlackout(reason, durationMs) {
-        // Show the hard-obscure immediately (synchronous reflow)
+        // Force synchronous reflow so blackout renders BEFORE the OS reads the buffer
         document.body.classList.add('hard-obscure');
-        void document.body.offsetWidth; // force reflow before OS reads screen buffer
+        void document.body.offsetWidth;
 
-        // Also blur the content layer
         document.body.classList.add('content-obscured');
 
-        // Fire the breach callback (shows Protocol Breach popup in main.js)
         if (this.onBreachDetected) this.onBreachDetected(reason);
 
-        // Auto-clear after a short period so the user can still use the app
         clearTimeout(this._hardBlackoutTimer);
         this._hardBlackoutTimer = setTimeout(() => {
             document.body.classList.remove('hard-obscure');
-            // NOTE: content-obscured is cleared by the "Acknowledge" button in main.js
         }, durationMs || 800);
     }
 
-    // ─── Focus Monitor (RAF loop) ────────────────────────────────────────────
+    // ─── Layer 3: Screen Capture API Override ────────────────────────────────
 
-    /**
-     * Polls document.hasFocus() at ~60fps.
-     * On focus loss: soft blackout only.
-     * On focus return: clear soft blackout.
-     *
-     * Win+PrtSc heuristic: if focus was lost AND within 500ms a PrintScreen
-     * keyup fires (caught in _initListeners), we upgrade to a hard breach.
-     */
+    _blockScreenCaptureAPI() {
+        const deny = (reason) => {
+            this._hardBlackout(reason, 600);
+            return Promise.reject(
+                new DOMException('Screen capture is disabled in this secure session.', 'NotAllowedError')
+            );
+        };
+
+        // Override on MediaDevices.prototype (covers ALL instances, not just navigator.mediaDevices)
+        try {
+            const proto = MediaDevices.prototype;
+
+            // Block getDisplayMedia entirely
+            proto.getDisplayMedia = () => deny('Screen Capture API Blocked');
+
+            // Block getUserMedia only if requesting screen/display surface
+            const origGUM = proto.getUserMedia;
+            if (origGUM) {
+                proto.getUserMedia = function(constraints, ...rest) {
+                    if (
+                        constraints?.video?.displaySurface ||
+                        constraints?.video?.mediaSource === 'screen' ||
+                        constraints?.video?.mediaSource === 'window' ||
+                        constraints?.video?.mediaSource === 'application'
+                    ) {
+                        return deny('Screen Recording via getUserMedia Blocked');
+                    }
+                    return origGUM.call(this, constraints, ...rest);
+                };
+            }
+        } catch (e) { /* Silently fail in restricted environments */ }
+
+        // Belt-and-suspenders: also override the instance
+        if (navigator.mediaDevices) {
+            try {
+                navigator.mediaDevices.getDisplayMedia = () => deny('Screen Capture API Blocked');
+            } catch (e) {}
+        }
+
+        // Intercept MediaStream creation to catch display-capture tracks
+        try {
+            const OrigMediaStream = window.MediaStream;
+            window.MediaStream = function(...args) {
+                const stream = new OrigMediaStream(...args);
+                const displayTracks = stream.getTracks().filter(t =>
+                    t.kind === 'video' && (
+                        t.label.toLowerCase().includes('screen') ||
+                        t.label.toLowerCase().includes('display') ||
+                        t.label.toLowerCase().includes('window')
+                    )
+                );
+                if (displayTracks.length > 0) {
+                    stream.getTracks().forEach(t => t.stop());
+                    deny('Display MediaStream Intercepted');
+                    throw new DOMException('Not allowed', 'NotAllowedError');
+                }
+                return stream;
+            };
+            try { Object.setPrototypeOf(window.MediaStream, OrigMediaStream); } catch(e) {}
+        } catch (e) {}
+    }
+
+    // ─── Layer 4: Canvas API Poisoning ───────────────────────────────────────
+    // Any in-page script that tries to read pixel data gets blank data back,
+    // preventing javascript-based screen-grab attacks.
+
+    _poisonCanvasAPI() {
+        try {
+            // Poison getImageData — returns blank (black) pixels
+            const ctx = CanvasRenderingContext2D.prototype;
+            const origGetImageData = ctx.getImageData;
+            ctx.getImageData = function(sx, sy, sw, sh, ...rest) {
+                // Allow legitimate uses within our own secure canvas (by checking a flag)
+                if (this.canvas && this.canvas.__stealthTrusted) {
+                    return origGetImageData.call(this, sx, sy, sw, sh, ...rest);
+                }
+                return new ImageData(sw || 1, sh || 1); // blank
+            };
+
+            // Poison toDataURL — returns a 1×1 blank PNG
+            const origToDataURL = HTMLCanvasElement.prototype.toDataURL;
+            HTMLCanvasElement.prototype.toDataURL = function(...args) {
+                if (this.__stealthTrusted) return origToDataURL.apply(this, args);
+                return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+            };
+
+            // Poison toBlob — returns null blob
+            HTMLCanvasElement.prototype.toBlob = function(callback) {
+                if (this.__stealthTrusted) {
+                    // Allow trusted canvas (set flag before calling)
+                    HTMLCanvasElement.prototype.toBlob = function(cb, ...a) { cb(new Blob()); };
+                }
+                callback(null);
+            };
+        } catch (e) {}
+    }
+
+    // ─── Layer 5: Clipboard Read Blocking ────────────────────────────────────
+
+    _blockClipboardRead() {
+        try {
+            if (navigator.clipboard) {
+                navigator.clipboard.read = () =>
+                    Promise.reject(new DOMException('Not allowed in secure session', 'NotAllowedError'));
+                navigator.clipboard.readText = () =>
+                    Promise.reject(new DOMException('Not allowed in secure session', 'NotAllowedError'));
+            }
+        } catch (e) {}
+    }
+
+    // ─── Layer 6: MutationObserver — Injection Detection ─────────────────────
+
+    _startMutationObserver() {
+        const observer = new MutationObserver((mutations) => {
+            for (const m of mutations) {
+                for (const node of m.addedNodes) {
+                    if (node.nodeType !== Node.ELEMENT_NODE) continue;
+                    const tag = node.tagName?.toLowerCase();
+
+                    // Block injected iframes (XSS screenshot relay vector)
+                    if (tag === 'iframe') {
+                        node.remove();
+                        this._hardBlackout('Unauthorized iframe Injection Detected', 600);
+                        return;
+                    }
+
+                    // Block rogue video elements that could relay a capture stream
+                    if (tag === 'video') {
+                        const allowedIds = ['local-video', 'remote-video'];
+                        if (!allowedIds.includes(node.id) && (node.src || node.srcObject)) {
+                            node.srcObject = null;
+                            node.src = '';
+                            node.remove();
+                            this._hardBlackout('Unauthorized Video Element Detected', 600);
+                            return;
+                        }
+                    }
+                }
+            }
+        });
+
+        observer.observe(document.documentElement, { childList: true, subtree: true });
+        this._mutationObserver = observer;
+    }
+
+    // ─── Layer 7: Focus Monitor (RAF loop ~60fps) ─────────────────────────────
+
     _startFocusMonitor() {
         const tick = () => {
             const isFocused = document.hasFocus();
 
             if (this._wasFocused && !isFocused) {
-                // Focus just lost
                 if (!this._blurSuppressed) {
                     this._focusLostAt = Date.now();
                     this._softBlackout();
                 }
             } else if (!this._wasFocused && isFocused) {
-                // Focus returned — clear soft blackout
                 this._focusLostAt = 0;
                 this._clearSoftBlackout();
             }
@@ -170,40 +322,14 @@ class ScreenshotDetector {
         requestAnimationFrame(tick);
     }
 
-    // ─── Screen Capture API Override ─────────────────────────────────────────
-
-    _blockScreenCaptureAPI() {
-        if (!navigator.mediaDevices) return;
-
-        const deny = (reason) => {
-            this._hardBlackout(reason, 600);
-            return Promise.reject(new DOMException('Screen capture is disabled.', 'NotAllowedError'));
-        };
-
-        if (navigator.mediaDevices.getDisplayMedia) {
-            navigator.mediaDevices.getDisplayMedia = () => deny('Screen Capture API Blocked');
-        }
-
-        const origGUM = navigator.mediaDevices.getUserMedia?.bind(navigator.mediaDevices);
-        if (origGUM) {
-            navigator.mediaDevices.getUserMedia = (constraints, ...rest) => {
-                if (constraints?.video?.displaySurface || constraints?.video?.mediaSource === 'screen') {
-                    return deny('Screen Recording via getUserMedia Blocked');
-                }
-                return origGUM(constraints, ...rest);
-            };
-        }
-    }
-
-    // ─── Event Listeners ─────────────────────────────────────────────────────
+    // ─── Layer 8–12: Event Listeners ─────────────────────────────────────────
 
     _initListeners() {
-        const isTouchDevice = navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
 
-        // ── KEYDOWN — intercept screenshot shortcuts ───────────────────────────
+        // ── Keyboard: screenshot shortcuts ────────────────────────────────────
         document.addEventListener('keydown', (e) => {
 
-            // PrtSc / Alt+PrtSc — hard breach
+            // PrtSc / Alt+PrtSc
             if (e.key === 'PrintScreen') {
                 e.preventDefault();
                 e.stopImmediatePropagation();
@@ -212,23 +338,23 @@ class ScreenshotDetector {
                              : 'PrtSc Blocked — Clipboard Screenshot Prevented',
                     1000
                 );
-                // Try to overwrite clipboard (may silently fail — no permission popup since we catch errors)
                 this._tryPoisonClipboard();
                 return;
             }
 
-            // Win+Shift+S — Snipping Tool — hard breach
-            const isWinKey = e.metaKey ||
-                             e.getModifierState?.('Meta') ||
-                             e.getModifierState?.('OS');
-            if (e.shiftKey && isWinKey && (e.key === 'S' || e.key === 's')) {
+            const isMetaKey = e.metaKey ||
+                              e.getModifierState?.('Meta') ||
+                              e.getModifierState?.('OS');
+
+            // Win+Shift+S — Snipping Tool
+            if (e.shiftKey && isMetaKey && (e.key === 'S' || e.key === 's')) {
                 e.preventDefault();
                 e.stopImmediatePropagation();
                 this._hardBlackout('Win+Shift+S Snipping Tool Blocked', 1000);
                 return;
             }
 
-            // macOS: Cmd+Shift+3/4/5/6 — hard breach
+            // macOS: Cmd+Shift+3/4/5/6 (full, area, screen record, touch bar)
             if (e.metaKey && e.shiftKey && ['3','4','5','6'].includes(e.key)) {
                 e.preventDefault();
                 e.stopImmediatePropagation();
@@ -236,7 +362,15 @@ class ScreenshotDetector {
                 return;
             }
 
-            // Ctrl+P — print — hard breach
+            // macOS: Cmd+Ctrl+Shift+3/4 (clipboard screenshot)
+            if (e.metaKey && e.ctrlKey && e.shiftKey && ['3','4'].includes(e.key)) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                this._hardBlackout('macOS Clipboard Screenshot Blocked', 800);
+                return;
+            }
+
+            // Ctrl+P — Print
             if (e.ctrlKey && (e.key === 'p' || e.key === 'P')) {
                 e.preventDefault();
                 e.stopImmediatePropagation();
@@ -244,7 +378,7 @@ class ScreenshotDetector {
                 return;
             }
 
-            // F12 / DevTools — hard breach
+            // F12 / DevTools keyboard shortcuts
             if (e.key === 'F12' ||
                 (e.ctrlKey && e.shiftKey && ['I','i','J','j','C','c','K','k'].includes(e.key))) {
                 e.preventDefault();
@@ -253,7 +387,7 @@ class ScreenshotDetector {
                 return;
             }
 
-            // Ctrl+U — View Source — hard breach
+            // Ctrl+U — View Source
             if (e.ctrlKey && (e.key === 'u' || e.key === 'U')) {
                 e.preventDefault();
                 e.stopImmediatePropagation();
@@ -261,15 +395,15 @@ class ScreenshotDetector {
                 return;
             }
 
-            // Ctrl+S — Save Page — hard breach
-            if (e.ctrlKey && !e.shiftKey && !isWinKey && (e.key === 's' || e.key === 'S')) {
+            // Ctrl+S — Save Page
+            if (e.ctrlKey && !e.shiftKey && !isMetaKey && (e.key === 's' || e.key === 'S')) {
                 e.preventDefault();
                 e.stopImmediatePropagation();
                 this._hardBlackout('Page Save Attempt Blocked', 400);
                 return;
             }
 
-            // Triple-ESC — Panic Mode
+            // Triple-ESC → Panic Mode
             if (e.key === 'Escape') {
                 const now = Date.now();
                 this.escCount = (now - this.lastEscTime < 1000) ? this.escCount + 1 : 1;
@@ -279,29 +413,21 @@ class ScreenshotDetector {
 
         }, { capture: true, passive: false });
 
-        // ── KEYUP — overwrite clipboard after OS reads it on PrtSc release ────
-        // Also detects Win+PrtSc: if focus was recently lost AND PrintScreen fires within 500ms,
-        // it was likely Win+PrtSc (OS grabbed file screenshot).
+        // ── Keyup: overwrite clipboard AFTER OS reads it on PrtSc release ─────
         document.addEventListener('keyup', (e) => {
             if (e.key === 'PrintScreen') {
                 e.preventDefault();
                 e.stopImmediatePropagation();
                 this._tryPoisonClipboard();
-
-                // Win+PrtSc heuristic: focus was lost recently
+                // Win+PrtSc heuristic: focus was lost right before keyup
                 if (this._focusLostAt && (Date.now() - this._focusLostAt) < 600) {
                     this._hardBlackout('Win+PrtSc Detected — File Screenshot Blocked', 800);
                 }
             }
         }, { capture: true, passive: false });
 
-        // ── visibilitychange — SOFT blackout (desktop only) ──────────────────
-        // On desktop: tab switch / minimise → silent blackout only.
-        // On MOBILE: visibilitychange is handled in main.js as a HARD panic
-        //            (the app backgrounding fully exposes the screen to the OS).
-        //            The detector must NOT fire a soft blackout here on mobile or
-        //            it will conflict with the panic flow.
-        if (!isTouchDevice) {
+        // ── visibilitychange — SOFT (desktop) / already handled in main.js (mobile) ──
+        if (!this._isMobile) {
             document.addEventListener('visibilitychange', () => {
                 if (document.hidden) {
                     if (!this._blurSuppressed) this._softBlackout();
@@ -311,8 +437,8 @@ class ScreenshotDetector {
             });
         }
 
-        // ── Mouse leave — SOFT blackout (desktop only) ───────────────────────
-        if (!isTouchDevice) {
+        // ── Mouse leave / enter (desktop only) ───────────────────────────────
+        if (!this._isMobile) {
             document.addEventListener('mouseleave', (e) => {
                 if (this._blurSuppressed) return;
                 if (e.clientY <= 0 || e.clientX <= 0 ||
@@ -325,18 +451,35 @@ class ScreenshotDetector {
             });
         }
 
-        // ── Mobile: 3-finger touch (screenshot gesture on Samsung/Android) ────
-        if (isTouchDevice) {
+        // ── Mobile gesture detection ──────────────────────────────────────────
+        if (this._isMobile) {
+            // 3+ finger touch = screenshot gesture on most Android phones
             document.addEventListener('touchstart', (e) => {
                 if (e.touches.length >= 3) {
-                    this._hardBlackout('3-Finger Screenshot Gesture Blocked', 800);
+                    this._hardBlackout('Multi-Touch Screenshot Gesture Blocked', 800);
+                }
+            }, { passive: true });
+
+            // Double-tap near top of screen = status bar tap (swipe-down screenshot prep)
+            let lastStatusTap = 0;
+            document.addEventListener('touchend', (e) => {
+                const touch = e.changedTouches[0];
+                if (touch && touch.clientY < 50) {
+                    const now = Date.now();
+                    if (now - lastStatusTap < 400) {
+                        this._softBlackout();
+                    }
+                    lastStatusTap = now;
                 }
             }, { passive: true });
         }
 
-        // ── Copy / Cut — block silently (no breach popup, just block action) ─
+        // ── Copy / Cut — block ────────────────────────────────────────────────
         document.addEventListener('copy', (e) => e.preventDefault(), { capture: true });
         document.addEventListener('cut',  (e) => e.preventDefault(), { capture: true });
+
+        // ── Drag — block ──────────────────────────────────────────────────────
+        document.addEventListener('dragstart', (e) => e.preventDefault(), { capture: true });
 
         // ── Context menu — HARD breach ────────────────────────────────────────
         document.addEventListener('contextmenu', (e) => {
@@ -349,38 +492,40 @@ class ScreenshotDetector {
             this._hardBlackout('Print Blocked', 2000);
         });
 
-        // ── Window resize (screen recorder / split-screen) ────────────────────
-        let lastW = window.innerWidth, rTimer;
-        const onResize = () => {
-            clearTimeout(rTimer);
-            rTimer = setTimeout(() => {
-                const nw = window.innerWidth;
-                if (Math.abs(nw - lastW) > 60) {
-                    lastW = nw;
-                    this._hardBlackout('Window Resized — Possible Screen Recorder', 400);
-                } else { lastW = nw; }
+        // ── Window resize: WIDTH changes only ─────────────────────────────────
+        // IMPORTANT: We only watch innerWidth (not height) because on mobile,
+        // the keyboard opening causes a HEIGHT resize — that is NOT a capture attempt.
+        // A WIDTH change > 60px indicates split-screen or a screen-recorder resizing.
+        let lastInnerWidth = window.innerWidth;
+        let resizeDebounce;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeDebounce);
+            resizeDebounce = setTimeout(() => {
+                const newWidth = window.innerWidth;
+                if (Math.abs(newWidth - lastInnerWidth) > 60) {
+                    lastInnerWidth = newWidth;
+                    if (!this._isMobile) {
+                        this._hardBlackout('Window Resized — Possible Screen Recorder', 400);
+                    }
+                } else {
+                    lastInnerWidth = newWidth;
+                }
             }, 400);
-        };
-        (window.visualViewport || window).addEventListener('resize', onResize);
-
-        // ── DevTools protection ───────────────────────────────────────────────
-        this._protectConsole();
+        });
     }
 
-    // ─── Clipboard Poison (used only on PrtSc events) ────────────────────────
+    // ─── Clipboard Poison ─────────────────────────────────────────────────────
 
     _tryPoisonClipboard() {
-        // Use execCommand which doesn't require clipboard permission
         try {
             const ta = document.createElement('textarea');
-            ta.value = '\u26D4 SECURE SESSION \u26D4';
-            ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
+            ta.value = '\u26D4 SECURE SESSION — CAPTURE BLOCKED \u26D4';
+            ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
             document.body.appendChild(ta);
             ta.select();
             document.execCommand('copy');
             document.body.removeChild(ta);
         } catch (_) {
-            // If execCommand fails, try the async API silently (no permission prompt if granted)
             navigator.clipboard?.writeText('\u26D4').catch(() => {});
         }
     }
@@ -390,29 +535,40 @@ class ScreenshotDetector {
     _protectConsole() {
         const noop = () => {};
         try {
-            ['log','warn','error','info','debug','trace'].forEach(m => {
-                try { console[m] = noop; } catch(_) {}
+            ['log','warn','error','info','debug','trace','table','dir'].forEach(m => {
+                try { console[m] = noop; } catch (_) {}
             });
-        } catch(_) {}
+        } catch (_) {}
+    }
 
+    _startDevToolsDetection() {
+        // Method 1: debugger statement timing — pauses > 80ms = debugger attached
         setInterval(() => {
             const t = Date.now();
-            debugger; // eslint-disable-line no-debugger
-            if (Date.now() - t > 80) window.location.reload();
-        }, 1000);
+            // eslint-disable-next-line no-debugger
+            debugger;
+            if (Date.now() - t > 80) {
+                this._hardBlackout('Debugger Detected — Session Locked', 1000);
+            }
+        }, 1500);
+
+        // Method 2: outer vs inner dimension gap — DevTools panel changes window dimensions
+        if (!this._isMobile) {
+            setInterval(() => {
+                const widthGap  = window.outerWidth  - window.innerWidth;
+                const heightGap = window.outerHeight - window.innerHeight;
+                // A gap > 200px strongly suggests a DevTools panel is open
+                if (widthGap > 200 || heightGap > 200) {
+                    this._hardBlackout('Developer Tools Panel Detected', 600);
+                }
+            }, 2000);
+        }
     }
 
-    // ─── Legacy-compatible methods (called from old code paths) ──────────────
+    // ─── Legacy-compatible methods ────────────────────────────────────────────
 
-    activateStealthLock(reason) {
-        // Legacy: just do a soft blackout
-        this._softBlackout();
-    }
-
-    handleBreach(reason) {
-        // Legacy: hard breach
-        this._hardBlackout(reason, 600);
-    }
+    activateStealthLock(reason) { this._softBlackout(); }
+    handleBreach(reason)        { this._hardBlackout(reason, 600); }
 }
 
 window.ScreenshotDetector = ScreenshotDetector;

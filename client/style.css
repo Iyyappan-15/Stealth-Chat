@@ -820,17 +820,23 @@ body.hard-obscure .input-area {
 /* --- Mobile (≤ 768px) --- */
 @media (max-width: 768px) {
 
-    /* Body: fixed size, no scroll — chat screen handles its own layout */
+    /* Body: set dynamic height only — each screen is position:fixed so body
+       overflow doesn't matter. No position:fixed on body (that broke scrolling). */
     body {
         height: 100dvh;
         min-height: unset;
         overflow: hidden;
-        position: fixed;
-        width: 100%;
     }
 
-    /* Login Screen */
-    #login-screen {
+    /* Login + Type-select: fill the viewport and scroll internally.
+       position:fixed keeps them from being clipped by body overflow:hidden. */
+    #login-screen,
+    #type-select-screen {
+        position: fixed !important;
+        inset: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
         padding: 1rem;
         align-items: flex-start;
         padding-top: 10vh;
