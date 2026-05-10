@@ -304,50 +304,96 @@ class ScreenshotDetector {
         // ── Layer 1: Keyboard screenshot shortcuts ────────────────────────────
         document.addEventListener('keydown', (e) => {
 
-            // PrtSc / Alt+PrtSc
+            // ── PrintScreen family (all modifier variants) ────────────────────
             if (e.key === 'PrintScreen') {
                 e.preventDefault();
                 e.stopImmediatePropagation();
-                this._hardBlackout(
-                    e.altKey ? 'Alt+PrtSc Blocked — Window Screenshot Prevented'
-                             : 'PrtSc Blocked — Clipboard Screenshot Prevented',
-                    1000
-                );
+                let msg = 'PrtScn Blocked — Clipboard Screenshot Prevented';
+                if (e.altKey  && !e.shiftKey && !e.ctrlKey) msg = 'Alt+PrtScn Blocked — Window Screenshot Prevented';
+                if (e.shiftKey && !e.altKey  && !e.ctrlKey) msg = 'Shift+PrtScn Blocked — Area Screenshot Prevented';
+                if (e.ctrlKey)                               msg = 'Ctrl+PrtScn Blocked — Screenshot Prevented';
+                this._hardBlackout(msg, 1000);
                 this._tryPoisonClipboard();
                 return;
             }
 
-            const isMeta = e.metaKey || e.getModifierState?.('Meta') || e.getModifierState?.('OS');
+            const isMeta = e.metaKey ||
+                           e.getModifierState?.('Meta') ||
+                           e.getModifierState?.('OS');
 
-            // Win+Shift+S — Snipping Tool
-            if (e.shiftKey && isMeta && (e.key === 'S' || e.key === 's')) {
+            // ── Windows Key combos ────────────────────────────────────────────
+
+            // Win+PrtScn — saves screenshot to Pictures folder
+            // (OS intercepts before browser keydown, but we try anyway)
+            if (isMeta && e.key === 'PrintScreen') {
+                e.preventDefault(); e.stopImmediatePropagation();
+                this._hardBlackout('Win+PrtScn Blocked — File Screenshot Prevented', 1000);
+                this._tryPoisonClipboard();
+                return;
+            }
+
+            // Win+Shift+S — Snipping Tool / Snip & Sketch
+            if (isMeta && e.shiftKey && (e.key === 'S' || e.key === 's')) {
                 e.preventDefault(); e.stopImmediatePropagation();
                 this._hardBlackout('Win+Shift+S Snipping Tool Blocked', 1000);
                 return;
             }
 
-            // macOS: Cmd+Shift+3/4/5/6
-            if (e.metaKey && e.shiftKey && ['3','4','5','6'].includes(e.key)) {
+            // Win+G — Xbox Game Bar (overlay)
+            if (isMeta && !e.shiftKey && !e.altKey && !e.ctrlKey && (e.key === 'G' || e.key === 'g')) {
+                e.preventDefault(); e.stopImmediatePropagation();
+                this._hardBlackout('Win+G Xbox Game Bar Blocked', 800);
+                return;
+            }
+
+            // Win+Alt+R — Xbox Game Bar screen recording
+            if (isMeta && e.altKey && !e.shiftKey && (e.key === 'R' || e.key === 'r')) {
+                e.preventDefault(); e.stopImmediatePropagation();
+                this._hardBlackout('Win+Alt+R Xbox Game Bar Recording Blocked', 800);
+                return;
+            }
+
+            // Win+Alt+PrtScn — Xbox Game Bar screenshot
+            if (isMeta && e.altKey && e.key === 'PrintScreen') {
+                e.preventDefault(); e.stopImmediatePropagation();
+                this._hardBlackout('Win+Alt+PrtScn Game Bar Screenshot Blocked', 1000);
+                this._tryPoisonClipboard();
+                return;
+            }
+
+            // ── macOS combos ──────────────────────────────────────────────────
+
+            // Cmd+Shift+3/4/5/6 (full, area, screen record, touch bar)
+            if (e.metaKey && e.shiftKey && !e.ctrlKey && ['3','4','5','6'].includes(e.key)) {
                 e.preventDefault(); e.stopImmediatePropagation();
                 this._hardBlackout(`macOS Screenshot (Cmd+Shift+${e.key}) Blocked`, 800);
                 return;
             }
 
-            // macOS: Cmd+Ctrl+Shift+3/4 (clipboard screenshot)
+            // Cmd+Ctrl+Shift+3/4 — copy to clipboard variant
             if (e.metaKey && e.ctrlKey && e.shiftKey && ['3','4'].includes(e.key)) {
                 e.preventDefault(); e.stopImmediatePropagation();
                 this._hardBlackout('macOS Clipboard Screenshot Blocked', 800);
                 return;
             }
 
-            // Ctrl+P — Print
-            if (e.ctrlKey && (e.key === 'p' || e.key === 'P')) {
+            // ── Linux combos ──────────────────────────────────────────────────
+
+            // Ctrl+Alt+Shift+R — GNOME built-in screen recorder
+            if (e.ctrlKey && e.altKey && e.shiftKey && (e.key === 'R' || e.key === 'r')) {
+                e.preventDefault(); e.stopImmediatePropagation();
+                this._hardBlackout('GNOME Screen Recorder Blocked (Ctrl+Alt+Shift+R)', 1000);
+                return;
+            }
+
+            // ── Print ─────────────────────────────────────────────────────────
+            if (e.ctrlKey && !e.shiftKey && (e.key === 'p' || e.key === 'P')) {
                 e.preventDefault(); e.stopImmediatePropagation();
                 this._hardBlackout('Print Attempt Blocked', 500);
                 return;
             }
 
-            // F12 / DevTools shortcuts
+            // ── DevTools shortcuts ────────────────────────────────────────────
             if (e.key === 'F12' ||
                 (e.ctrlKey && e.shiftKey && ['I','i','J','j','C','c','K','k'].includes(e.key))) {
                 e.preventDefault(); e.stopImmediatePropagation();
