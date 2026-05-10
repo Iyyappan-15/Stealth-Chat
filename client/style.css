@@ -65,16 +65,16 @@ body {
     -webkit-overflow-scrolling: touch;
 }
 
-/* Chat screen — fills the full visual viewport via inset:0.
-   No explicit height unit is needed: position:fixed + top/bottom:0
-   naturally stretches to exactly the visible area on every browser,
-   including Android (Brave/Chrome with bottom toolbar) and iOS Safari. */
+/* Chat screen: position:fixed with height:100dvh (NO bottom:0).
+   100dvh = dynamic viewport height = visible area EXCLUDING browser toolbars.
+   This correctly accounts for Brave/Chrome bottom tab bars on Android.
+   Using inset:0 / bottom:0 extends behind those toolbars, hiding the input. */
 #chat-screen {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
-    bottom: 0;
+    height: 100dvh;
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -523,14 +523,15 @@ header {
 
 /* Input Area */
 .input-area {
-    padding: 2rem;
-    background: rgba(5, 5, 5, 0.85);
+    padding: 1rem 2rem;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    background: rgba(5, 5, 5, 0.95);
     backdrop-filter: blur(15px);
     border-top: 1px solid var(--glass-border);
     display: flex;
     gap: 15px;
     align-items: center;
-    flex-shrink: 0;   /* never compress the input bar */
+    flex-shrink: 0;
 }
 
 #message-input {
