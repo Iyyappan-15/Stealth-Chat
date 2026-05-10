@@ -20,17 +20,19 @@ body {
     background-color: var(--bg-color);
     color: var(--text-color);
     font-family: var(--font-family);
-    height: 100vh;
+    height: 100%;
+    min-height: 100vh;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
     position: relative;
     user-select: none;
 }
 
 .screen {
     width: 100%;
-    height: 100%;
+    min-height: 100vh;
     display: flex;
     flex-direction: column;
     position: relative;
@@ -44,12 +46,39 @@ body {
 
 /* Login Screen */
 #login-screen {
-    justify-content: center;
+    justify-content: flex-start;
     align-items: center;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 2rem 1rem;
+    /* Smooth momentum scrolling on iOS */
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Type-select screen — also needs to scroll on small devices */
+#type-select-screen {
+    justify-content: flex-start;
+    align-items: center;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 2rem 1rem;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Chat screen — MUST stay locked so only the messages area scrolls */
+#chat-screen {
+    height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
 }
 
 .container {
-    padding: 4rem;
+    padding: 2.5rem 2rem;
     border: 1px solid var(--glass-border);
     border-radius: 20px;
     background: var(--card-bg);
@@ -58,6 +87,8 @@ body {
     width: 100%;
     max-width: 500px;
     text-align: center;
+    /* Don't collapse on very tall content */
+    flex-shrink: 0;
 }
 
 h1 {
@@ -1317,16 +1348,16 @@ body.hard-obscure .input-area {
    ============================================= */
 
 #type-select-screen {
-    justify-content: center;
-    align-items: center;
+    /* justify-content / align-items / overflow handled by top-of-file rule */
     background: var(--bg-color);
 }
 
 .type-select-container {
     text-align: center;
-    padding: 3rem 2rem;
+    padding: 2rem 1.5rem;
     max-width: 680px;
     width: 100%;
+    flex-shrink: 0;
 }
 
 .type-cards {
@@ -1759,7 +1790,7 @@ body.hard-obscure .input-area {
     .type-card {
         max-width: 100%;
         width: 100%;
-        padding: 1.75rem 1.25rem;
+        padding: 1.25rem 1rem;
         flex-direction: row;
         text-align: left;
         gap: 16px;
@@ -1768,7 +1799,7 @@ body.hard-obscure .input-area {
     .type-card-title { font-size: 0.95rem; }
     .type-card-desc { font-size: 0.68rem; }
     .type-card-badge { margin-top: 0; }
-    .type-select-container { padding: 2rem 1rem; }
+    .type-select-container { padding: 1.2rem 0.75rem; }
 
     /* Participants panel */
     .participants-panel { width: 80vw; max-width: 280px; }
@@ -2035,21 +2066,75 @@ audio.media-preview-inline {
 
 /* Mobile adjustments */
 @media (max-width: 768px) {
-    .message.media-message {
-        max-width: 88%;
+    /* ── Login / Type-select scrolling ───────────────────────────── */
+    #login-screen,
+    #type-select-screen {
+        justify-content: flex-start;
+        padding: 1.2rem 0.75rem 2rem;
     }
-    .secure-file-card {
-        padding: 12px 12px 8px;
+
+    .container {
+        padding: 1.5rem 1.25rem;
+        border-radius: 14px;
+        margin: 0;
+        width: 100%;
+        max-width: 100%;
     }
-    .secure-file-icon {
-        font-size: 1.6rem;
+
+    h1 { font-size: 2rem; }
+
+    .brand-logo    { width: 52px; height: 52px; }
+    .brand-logo-sm { width: 40px; height: 40px; }
+
+    .subtitle {
+        font-size: 0.72rem;
+        margin-bottom: 1.5rem;
     }
-    .secure-file-name {
-        font-size: 0.76rem;
+
+    /* Call sign input */
+    .name-input-group { margin-bottom: 1.2rem; }
+    input { padding: 14px; font-size: 0.95rem; }
+
+    /* Mode buttons */
+    .mode-selection { margin-bottom: 1.2rem; }
+    .mode-btn { padding: 10px 12px; font-size: 0.78rem; }
+
+    /* Room display box */
+    .generated-room-display { padding: 14px; margin-bottom: 1rem; }
+    .room-id-value { font-size: 1.35rem; }
+
+    /* Session duration */
+    .session-duration-group { margin: 0.9rem 0 0.5rem; }
+    .session-duration-input { font-size: 0.95rem; padding: 10px; }
+
+    /* Action buttons — bigger tap targets */
+    .action-btn {
+        padding: 16px;
+        font-size: 0.88rem;
+        letter-spacing: 1px;
+        margin-top: 8px;
     }
-    .media-preview-inline {
-        max-height: 200px;
-    }
+
+    /* Type-select cards */
+    .type-cards { flex-direction: column; gap: 12px; }
+    .type-card  { padding: 1.2rem 1rem; }
+    .type-card-icon .svg-icon { font-size: 2rem; }
+    .type-card-title { font-size: 0.9rem; }
+    .type-card-desc  { font-size: 0.72rem; }
+
+    /* ── Chat screen internal layout ───────────────────────── */
+    .message.media-message { max-width: 88%; }
+    .secure-file-card   { padding: 12px 12px 8px; }
+    .secure-file-name   { font-size: 0.76rem; }
+    .media-preview-inline { max-height: 200px; }
+}
+
+/* Extra-small phones */
+@media (max-width: 380px) {
+    .container   { padding: 1.2rem 1rem; }
+    h1           { font-size: 1.7rem; }
+    .action-btn  { padding: 14px; font-size: 0.82rem; }
+    .room-id-value { font-size: 1.1rem; letter-spacing: 1px; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
