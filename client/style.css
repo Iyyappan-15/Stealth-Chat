@@ -65,22 +65,19 @@ body {
     -webkit-overflow-scrolling: touch;
 }
 
-/* Chat screen — height is set to window.innerHeight by JS on activation.
-   svh (small viewport height) is the CSS starting point — it represents
-   the viewport with ALL browser chrome visible, which is the safest value
-   for Android browsers that have bottom toolbars (Brave, Chrome, etc.).
-   The JS override immediately replaces this with the exact pixel value. */
+/* Chat screen — fills the full visual viewport via inset:0.
+   No explicit height unit is needed: position:fixed + top/bottom:0
+   naturally stretches to exactly the visible area on every browser,
+   including Android (Brave/Chrome with bottom toolbar) and iOS Safari. */
 #chat-screen {
-    height: 100svh;          /* small viewport height — browser toolbar included */
-    max-height: 100svh;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .container {
@@ -820,26 +817,11 @@ body.hard-obscure .input-area {
 /* --- Mobile (≤ 768px) --- */
 @media (max-width: 768px) {
 
-    /* Body: set dynamic height only — each screen is position:fixed so body
-       overflow doesn't matter. No position:fixed on body (that broke scrolling). */
-    body {
-        height: 100dvh;
-        min-height: unset;
-        overflow: hidden;
-    }
-
-    /* Login + Type-select: fill the viewport and scroll internally.
-       position:fixed keeps them from being clipped by body overflow:hidden. */
-    #login-screen,
-    #type-select-screen {
-        position: fixed !important;
-        inset: 0;
-        overflow-y: auto;
-        overflow-x: hidden;
-        -webkit-overflow-scrolling: touch;
+    /* Login + Type-select: scroll naturally within their min-height container */
+    #login-screen {
         padding: 1rem;
+        padding-top: 8vh;
         align-items: flex-start;
-        padding-top: 10vh;
     }
 
     .container {
