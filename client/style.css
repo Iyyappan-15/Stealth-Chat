@@ -1989,3 +1989,84 @@ audio.media-preview-inline {
     }
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════════
+   SVG ICON SYSTEM
+   All emoji replaced with crisp, professional SVG icons via Icons.get() helper.
+   ─────────────────────────────────────────────────────────────────────────────── */
+
+/* Base icon wrapper */
+.svg-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.svg-icon svg {
+    display: block;
+    width: 1em;
+    height: 1em;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    overflow: visible;
+}
+
+/* Size variants */
+.svg-icon.icon-xs  { font-size: 0.85rem; }
+.svg-icon.icon-sm  { font-size: 1rem; }
+.svg-icon.icon-md  { font-size: 1.3rem; }
+.svg-icon.icon-lg  { font-size: 1.8rem; }
+.svg-icon.icon-xl  { font-size: 2.6rem; }
+
+/* Colour state helpers */
+.svg-icon.seal-icon   { color: var(--accent-color); }
+.svg-icon.seal-warning { color: var(--danger-color); }
+
+/* Call overlay active-call dot — filled red circle */
+.call-dot svg {
+    fill: currentColor;
+    stroke: none;
+}
+.call-dot { color: var(--danger-color); }
+
+/* Buttons that contain SVG icons — align icon + text side by side */
+button .svg-icon,
+label .svg-icon {
+    margin-right: 0.35em;
+}
+
+/* Icon-only buttons (attach, call) — keep compact */
+.icon-btn .svg-icon { margin-right: 0; }
+
+/* Type-card large icons */
+.type-card-icon .svg-icon {
+    color: inherit;
+}
+
+/* System alert messages may contain inline SVG */
+.message.system .svg-icon {
+    vertical-align: middle;
+    margin-right: 0.3em;
+    opacity: 0.85;
+}
+
+/* Secure file card icon container */
+.secure-file-icon .svg-icon {
+    color: var(--secondary-color);
+}
+
+/* Seal popup */
+.seal-popup-label .svg-icon {
+    color: var(--accent-color);
+    margin-right: 0.4em;
+}
+
+/* Seal container header badge */
+.session-seal .svg-icon {
+    color: var(--accent-color);
+}
