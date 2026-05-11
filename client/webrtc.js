@@ -277,10 +277,18 @@ class WebRTCManager {
                 }, 4000);
 
             } else if (state === 'failed') {
-                // Failed = truly unrecoverable ICE failure
-                console.log('P2P connection failed.');
+                // 'failed' can fire during initial ICE negotiation (before any connection
+                // was established). Only treat it as a real disconnect if we were already
+                // connected, otherwise just clean up silently and let the WS layer retry.
+                console.log('P2P connection failed. Was connected:', this.p2pConnected);
                 if (this.disconnectTimer) { clearTimeout(this.disconnectTimer); this.disconnectTimer = null; }
-                this._triggerDisconnect();
+                if (this.p2pConnected) {
+                    this._triggerDisconnect();
+                } else {
+                    // Never connected — clean up P2P without firing the disconnect callback
+                    // (the WS is still alive; server will re-pair when the peer reconnects)
+                    this._cleanupPeerConnection();
+                }
 
             } else if (state === 'closed') {
                 // Only fire if we didn't already handle it
