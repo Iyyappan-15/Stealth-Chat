@@ -567,14 +567,22 @@ class ScreenshotDetector {
         }, 1500);
 
         // Method 2: outer vs inner dimension gap (DevTools panel open)
+        // NOTE: threshold is 350px — browser chrome (tabs + address bar +
+        // bookmarks bar) normally consumes up to ~130px on desktop. A side-docked
+        // DevTools panel adds another 200-300px to the widthGap; a bottom-docked
+        // panel adds the same to heightGap. Using 200 caused false positives on
+        // many browsers/displays, so we raise it to 350 and wait 3 s before
+        // starting checks so the page is fully rendered first.
         if (!this._isMobile) {
-            setInterval(() => {
-                const widthGap  = window.outerWidth  - window.innerWidth;
-                const heightGap = window.outerHeight - window.innerHeight;
-                if (widthGap > 200 || heightGap > 200) {
-                    this._hardBlackout('Developer Tools Panel Detected', 600);
-                }
-            }, 2000);
+            setTimeout(() => {
+                setInterval(() => {
+                    const widthGap  = window.outerWidth  - window.innerWidth;
+                    const heightGap = window.outerHeight - window.innerHeight;
+                    if (widthGap > 350 || heightGap > 350) {
+                        this._hardBlackout('Developer Tools Panel Detected', 600);
+                    }
+                }, 2000);
+            }, 3000); // wait 3 s after page load before first check
         }
     }
 

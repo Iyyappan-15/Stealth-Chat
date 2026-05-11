@@ -59,13 +59,14 @@ app.get('/api/room/:roomId', (req, res) => {
 });
 
 // ─── Keep-alive ping ───────────────────────────────────────────────────────────
+// Sent every 20s — keeps free-tier hosts (Render etc.) alive and detects dead clients faster
 const SERVER_PING_INTERVAL = setInterval(() => {
     wss.clients.forEach(ws => {
         if (ws.readyState === WebSocket.OPEN) {
             try { ws.send(JSON.stringify({ type: 'pong' })); } catch (e) { /* ignore */ }
         }
     });
-}, 30000);
+}, 20000);
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -109,13 +110,13 @@ function genPeerId() {
 wss.on('connection', (ws) => {
     console.log('New WebSocket connection at', new Date().toISOString());
 
-    // Close idle connections that never join a room within 30s
+    // Close idle connections that never join a room within 10s
     const connectionTimeout = setTimeout(() => {
         if (!ws.roomId) {
             console.log('Connection timeout — no room joined');
             ws.close();
         }
-    }, 30000);
+    }, 10000);
 
     ws.on('message', (message) => {
         let data;
