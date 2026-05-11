@@ -7,13 +7,14 @@ class WebRTCManager {
         this.dataChannel = null;
         this.roomId = null;
         this.reconnectAttempts = 0;
-        this.maxReconnectAttempts = 12;
+        this.maxReconnectAttempts = 15;
         this.reconnectTimer = null;
         this.iceCandidateQueue = [];
         this.p2pConnected = false;
         this.disconnectTimer = null;
-        this._destroyed = false;    // only true when user explicitly terminates
-        this._pingInterval = null;  // WebSocket heartbeat to keep Render alive
+        this._destroyed = false;
+        this._pingInterval = null;
+        this._wsForceReconnecting = false; // guard against double reconnect
 
         // Callbacks
         this.onMessageReceived = onMessageReceived;
@@ -21,11 +22,7 @@ class WebRTCManager {
         this.onPeerDisconnected = onPeerDisconnected;
 
         this.config = {
-            // ── ICE Servers ──────────────────────────────────────────────
-            // Multiple STUN providers for redundancy + faster candidate gathering.
-            // TURN servers provide fallback relay when direct P2P is blocked.
             iceServers: [
-                // Google STUN — fastest, most reliable
                 { urls: [
                     'stun:stun.l.google.com:19302',
                     'stun:stun1.l.google.com:19302',
@@ -33,11 +30,8 @@ class WebRTCManager {
                     'stun:stun3.l.google.com:19302',
                     'stun:stun4.l.google.com:19302'
                 ]},
-                // Cloudflare STUN — low-latency global anycast
                 { urls: 'stun:stun.cloudflare.com:3478' },
-                // Twilio STUN — enterprise-grade
                 { urls: 'stun:global.stun.twilio.com:3478' },
-                // Open Relay TURN (UDP 80) — least-blocked port
                 {
                     urls: [
                         'turn:openrelay.metered.ca:80',
@@ -46,7 +40,6 @@ class WebRTCManager {
                     username: 'openrelayproject',
                     credential: 'openrelayproject'
                 },
-                // Open Relay TURN (HTTPS 443) — works through most firewalls
                 {
                     urls: [
                         'turn:openrelay.metered.ca:443',
@@ -56,9 +49,7 @@ class WebRTCManager {
                     credential: 'openrelayproject'
                 }
             ],
-            // Pre-gather 15 candidates before signaling even begins → faster connect
-            iceCandidatePoolSize: 15,
-            // Single multiplexed transport → fewer round-trips, faster setup
+            iceCandidatePoolSize: 10,
             bundlePolicy: 'max-bundle',
             rtcpMuxPolicy: 'require'
         };
@@ -71,8 +62,8 @@ class WebRTCManager {
     connectToSignaling(roomId) {
         this.roomId = roomId;
         this._destroyed = false;
+        this._wsForceReconnecting = false;
 
-        // Build wss:// URL from the configured server URL
         let wsUrl = this.signalingUrl;
         if (wsUrl.startsWith('https://')) {
             wsUrl = wsUrl.replace('https://', 'wss://');
@@ -86,17 +77,20 @@ class WebRTCManager {
         this.ws.onopen = () => {
             console.log('WebSocket connected to signaling server');
             this.reconnectAttempts = 0;
+            this._wsForceReconnecting = false;
             if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null; }
 
-            // Start heartbeat — sends a ping every 25s to keep Render/free-tier alive
             this._startHeartbeat();
 
-            // Only rejoin if P2P is not already live
-            if (!this.p2pConnected) {
-                this.ws.send(JSON.stringify({ type: 'join', roomId: this.roomId, name: this.myName, mode: 'p2p' }));
-            } else {
-                console.log('WS reconnected but P2P still alive — skipping room re-join.');
-            }
+            // ALWAYS re-join the room on every WS connect/reconnect.
+            // The server's grace-period logic handles the case where both
+            // peers reconnect after a transient failure.
+            this.ws.send(JSON.stringify({
+                type: 'join',
+                roomId: this.roomId,
+                name: this.myName,
+                mode: 'p2p'
+            }));
         };
 
         this.ws.onerror = (err) => {
@@ -114,7 +108,6 @@ class WebRTCManager {
         this.ws.onmessage = async (event) => {
             try {
                 const message = JSON.parse(event.data);
-                // Ignore pong responses from our heartbeat
                 if (message.type === 'pong') return;
                 await this.handleSignalingMessage(message);
             } catch (e) {
@@ -131,7 +124,7 @@ class WebRTCManager {
                     this.ws.send(JSON.stringify({ type: 'ping' }));
                 } catch (e) { /* ignore */ }
             }
-        }, 20000); // every 20 seconds — keeps Render/free-tier alive reliably
+        }, 20000);
     }
 
     _stopHeartbeat() {
@@ -143,12 +136,13 @@ class WebRTCManager {
 
     _scheduleReconnect() {
         if (this._destroyed) return;
+        if (this.reconnectTimer) return; // already scheduled
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
             this.reconnectAttempts++;
-            // Cap at 8s (was 15s) — faster recovery without hammering the server
-            const delay = Math.min(800 * Math.pow(1.8, this.reconnectAttempts - 1), 8000);
-            console.log(`WS reconnect in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+            const delay = Math.min(800 * Math.pow(1.6, this.reconnectAttempts - 1), 8000);
+            console.log(`WS reconnect in ${Math.round(delay)}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
             this.reconnectTimer = setTimeout(() => {
+                this.reconnectTimer = null;
                 if (!this._destroyed) this.connectToSignaling(this.roomId);
             }, delay);
         } else {
@@ -157,6 +151,37 @@ class WebRTCManager {
                 alert('Lost connection to server. Please refresh the page to try again.');
             }
         }
+    }
+
+    /**
+     * Force-close the WebSocket so the server removes us from the room,
+     * then reconnect. This restarts the full signaling flow (re-join → ready →
+     * offer/answer) which is the cleanest way to recover a failed P2P connection.
+     */
+    _forceWsReconnect(delayMs) {
+        if (this._destroyed || this._wsForceReconnecting) return;
+        this._wsForceReconnecting = true;
+
+        this._stopHeartbeat();
+        if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null; }
+
+        // Detach onclose so it doesn't double-schedule via _scheduleReconnect
+        if (this.ws) {
+            const oldWs = this.ws;
+            this.ws = null;
+            oldWs.onclose = null;
+            oldWs.onerror = null;
+            oldWs.onmessage = null;
+            try { oldWs.close(); } catch (e) { /* ignore */ }
+        }
+
+        const delay = delayMs || 1500;
+        console.log(`Forcing WS reconnect in ${delay}ms to restart handshake...`);
+        this.reconnectTimer = setTimeout(() => {
+            this.reconnectTimer = null;
+            this._wsForceReconnecting = false;
+            if (!this._destroyed) this.connectToSignaling(this.roomId);
+        }, delay);
     }
 
     // ─────────────────────────────────────────────
@@ -168,12 +193,10 @@ class WebRTCManager {
 
         switch (message.type) {
             case 'ready':
-                if (this.p2pConnected) {
-                    console.log('Got ready but P2P already connected — ignoring.');
-                    break;
-                }
+                // A new peer joined — always start fresh regardless of old p2pConnected state
                 console.log('Received ready — creating offer');
                 this._cleanupPeerConnection(); // clean any stale connection
+                this.p2pConnected = false;
                 this.createPeerConnection();
                 this.createDataChannel();
                 try {
@@ -186,6 +209,7 @@ class WebRTCManager {
                 break;
 
             case 'signal':
+                // Guard: if P2P is live and this is a duplicate signal, ignore
                 if (this.p2pConnected) {
                     console.log('Got signal but P2P already connected — ignoring.');
                     break;
@@ -195,8 +219,15 @@ class WebRTCManager {
                 break;
 
             case 'peer-left':
-                console.log('Peer WebSocket left. Watching P2P state...');
-                // Don't wipe — P2P DataChannel may still be alive
+                // Peer's WebSocket dropped. Clean up P2P immediately.
+                // When they reconnect (within the server grace period), we'll
+                // receive a new signal and re-establish the connection.
+                console.log('Peer WebSocket left — cleaning up P2P, awaiting re-join...');
+                if (this.peerConnection || this.p2pConnected) {
+                    this.p2pConnected = false;
+                    this._cleanupPeerConnection();
+                    if (this.onPeerDisconnected) this.onPeerDisconnected();
+                }
                 break;
 
             case 'full':
@@ -283,7 +314,7 @@ class WebRTCManager {
                 if (this.disconnectTimer) { clearTimeout(this.disconnectTimer); this.disconnectTimer = null; }
 
             } else if (state === 'disconnected') {
-                // Transient — give 4 seconds for ICE to recover (was 8s → snappier retry)
+                // Give ICE a chance to recover before declaring failure
                 console.log('P2P transient disconnect — waiting 4s for ICE recovery...');
                 try { this.peerConnection.restartIce(); } catch (e) { /* not always available */ }
 
@@ -291,19 +322,17 @@ class WebRTCManager {
                     if (!this.peerConnection) return;
                     const cur = this.peerConnection.connectionState;
                     if (cur === 'disconnected' || cur === 'failed') {
-                        console.log('P2P did not recover — disconnecting.');
+                        console.log('P2P did not recover — triggering disconnect.');
                         this._triggerDisconnect();
                     }
                 }, 4000);
 
             } else if (state === 'failed') {
-                // Failed = truly unrecoverable ICE failure
                 console.log('P2P connection failed.');
                 if (this.disconnectTimer) { clearTimeout(this.disconnectTimer); this.disconnectTimer = null; }
                 this._triggerDisconnect();
 
             } else if (state === 'closed') {
-                // Only fire if we didn't already handle it
                 if (this.p2pConnected) {
                     this._triggerDisconnect();
                 }
@@ -317,12 +346,18 @@ class WebRTCManager {
 
     _triggerDisconnect() {
         if (this._destroyed) return;
+        console.log('_triggerDisconnect: cleaning P2P and forcing WS reconnect...');
         this.p2pConnected = false;
-        this._cleanupPeerConnection(); // only tear down P2P — keep WebSocket alive!
+        this._cleanupPeerConnection();
         if (this.onPeerDisconnected) this.onPeerDisconnected();
+
+        // Force-close and reconnect the WebSocket so the server removes us
+        // from the room and resets the signaling state. When we reconnect,
+        // we send 'join' again and the server's grace period restores the room.
+        this._forceWsReconnect(1500);
     }
 
-    /** Tears down only the P2P layer (RTCPeerConnection + DataChannel). WebSocket stays alive. */
+    /** Tears down only the P2P layer. WebSocket managed separately. */
     _cleanupPeerConnection() {
         if (this.disconnectTimer) { clearTimeout(this.disconnectTimer); this.disconnectTimer = null; }
         if (this.dataChannel) {
@@ -343,12 +378,8 @@ class WebRTCManager {
     }
 
     createDataChannel() {
-        // negotiated:false lets the browser handle channel setup automatically;
-        // maxRetransmits:null + ordered:true = reliable ordered delivery (TCP-like)
         this.dataChannel = this.peerConnection.createDataChannel('chat', {
-            ordered: true,
-            // Increase buffer threshold for smoother high-volume transfers
-            // (actual limit is browser-controlled but this hints preference)
+            ordered: true
         });
         this.setupDataChannel(this.dataChannel);
     }
@@ -364,7 +395,7 @@ class WebRTCManager {
 
         this.dataChannel.onclose = () => {
             console.log('DataChannel closed');
-            // Let onconnectionstatechange handle the recovery decision
+            // Let onconnectionstatechange drive the recovery decision
             this.p2pConnected = false;
         };
 
@@ -408,7 +439,7 @@ class WebRTCManager {
         this._cleanupPeerConnection();
         if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null; }
         if (this.ws) {
-            this.ws.onclose = null; // prevent reconnect loop
+            this.ws.onclose = null;
             try { this.ws.close(); } catch (e) { /* ignore */ }
             this.ws = null;
         }
