@@ -292,6 +292,21 @@ wss.on('connection', (ws) => {
                 isTyping: data.isTyping
             });
         }
+
+        // ── RELAY-P2P-MSG (P2P relay fallback for cross-network) ──────────────
+        // When WebRTC/TURN fails between different networks, P2P peers fall back
+        // to routing AES-256 encrypted messages through this relay.
+        // The server never inspects or decrypts the payload.
+        else if (type === 'relay-p2p-msg') {
+            if (!ws.roomId || !rooms[ws.roomId]) return;
+            if (roomModes[ws.roomId] !== 'p2p') return;
+            const msg = JSON.stringify({ type: 'relay-p2p-msg', payload: data.payload });
+            rooms[ws.roomId].forEach(client => {
+                if (client !== ws && client.readyState === WebSocket.OPEN) {
+                    try { client.send(msg); } catch (e) { /* ignore */ }
+                }
+            });
+        }
     });
 
     // ── DISCONNECT ─────────────────────────────────────────────────────────────
