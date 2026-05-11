@@ -108,6 +108,7 @@ class WebRTCManager {
 
     _startHeartbeat() {
         this._stopHeartbeat();
+
         this._pingInterval = setInterval(() => {
             if (this.ws && this.ws.readyState === WebSocket.OPEN) {
                 try { this.ws.send(JSON.stringify({ type: 'ping' })); } catch (e) {}
@@ -116,7 +117,10 @@ class WebRTCManager {
     }
 
     _stopHeartbeat() {
-        if (this._pingInterval) { clearInterval(this._pingInterval); this._pingInterval = null; }
+        if (this._pingInterval) {
+            clearInterval(this._pingInterval);
+            this._pingInterval = null;
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -125,13 +129,18 @@ class WebRTCManager {
 
     _scheduleReconnect() {
         if (this._destroyed) return;
+
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
+
             this.reconnectAttempts++;
             const delay = Math.min(800 * Math.pow(1.8, this.reconnectAttempts - 1), 8000);
             console.log(`[WS] Reconnect #${this.reconnectAttempts} in ${Math.round(delay)}ms`);
             this.reconnectTimer = setTimeout(() => {
-                if (!this._destroyed) this.connectToSignaling(this.roomId);
+                if (!this._destroyed) {
+                    this.connectToSignaling(this.roomId);
+                }
             }, delay);
+
         } else {
             if (!this.p2pConnected) alert('Lost connection to server. Please refresh.');
         }
@@ -150,7 +159,9 @@ class WebRTCManager {
                 // We are the offerer — peer is already in the room
                 if (this.p2pConnected) break;
                 this._isOfferer = true;
+
                 this._cleanupPeerConnection();
+
                 await this._initiateOffer();
                 break;
 
@@ -307,6 +318,7 @@ class WebRTCManager {
 
         try {
             const offer = await this.peerConnection.createOffer();
+
             await this.peerConnection.setLocalDescription(offer);
             this.sendSignal({ sdp: this.peerConnection.localDescription });
         } catch (e) {
@@ -323,14 +335,21 @@ class WebRTCManager {
                     new RTCSessionDescription(payload.sdp)
                 );
 
-                // Flush any ICE candidates that arrived before remote description
+            try {
+
+                await this.peerConnection.setRemoteDescription(
+                    new RTCSessionDescription(payload.sdp)
+                );
+
                 while (this.iceCandidateQueue.length > 0) {
                     const c = this.iceCandidateQueue.shift();
                     try { await this.peerConnection.addIceCandidate(new RTCIceCandidate(c)); } catch (e) {}
                 }
 
                 if (payload.sdp.type === 'offer') {
+
                     const answer = await this.peerConnection.createAnswer();
+
                     await this.peerConnection.setLocalDescription(answer);
                     this.sendSignal({ sdp: this.peerConnection.localDescription });
                 }
@@ -340,12 +359,19 @@ class WebRTCManager {
             }
 
         } else if (payload.ice) {
+
             try {
+
                 if (this.peerConnection.remoteDescription) {
-                    await this.peerConnection.addIceCandidate(new RTCIceCandidate(payload.ice));
+
+                    await this.peerConnection.addIceCandidate(
+                        new RTCIceCandidate(payload.ice)
+                    );
+
                 } else {
                     this.iceCandidateQueue.push(payload.ice);
                 }
+
             } catch (e) {
                 console.error('[RTC] ICE candidate error:', e);
             }

@@ -153,7 +153,7 @@ wss.on('connection', (ws) => {
             if (chatMode === 'p2p') {
                 // Grace period reconnect
                 if (roomCleanupTimers[roomId]) {
-                    console.log(`Room ${roomId}: peer WS reconnected during grace period — cancelling cleanup.`);
+                    console.log(`Room ${roomId}: peer WS reconnected during grace period — handling restore.`);
                     clearTimeout(roomCleanupTimers[roomId]);
                     delete roomCleanupTimers[roomId];
                     if (!rooms[roomId]) rooms[roomId] = [];
@@ -164,7 +164,22 @@ wss.on('connection', (ws) => {
                     }
                     console.log(`Room ${roomId}: restored. Peers: ${rooms[roomId].length}`);
                     if (rooms[roomId].length === 2) {
+                        // Both peers are back — trigger new WebRTC handshake
                         ws.send(JSON.stringify({ type: 'ready' }));
+                    } else {
+                        // Only 1 peer reconnected so far — restart grace timer so
+                        // the 2nd peer can also reconnect through the grace path
+                        // (instead of being rejected by the lockedRooms check).
+                        console.log(`Room ${roomId}: only 1 peer back — restarting grace timer for 2nd peer.`);
+                        roomCleanupTimers[roomId] = setTimeout(() => {
+                            console.log(`Room ${roomId}: extended grace period expired — clearing lock.`);
+                            delete lockedRooms[roomId];
+                            delete roomCleanupTimers[roomId];
+                            if (rooms[roomId] && rooms[roomId].length === 0) {
+                                delete rooms[roomId];
+                                delete roomModes[roomId];
+                            }
+                        }, ROOM_GRACE_PERIOD_MS);
                     }
                     broadcastParticipants(roomId);
                     return;
@@ -275,6 +290,21 @@ wss.on('connection', (ws) => {
                 from: ws.peerId,
                 fromName: ws.peerName,
                 isTyping: data.isTyping
+            });
+        }
+
+        // ── RELAY-P2P-MSG (P2P relay fallback for cross-network) ──────────────
+        // When WebRTC/TURN fails between different networks, P2P peers fall back
+        // to routing AES-256 encrypted messages through this relay.
+        // The server never inspects or decrypts the payload.
+        else if (type === 'relay-p2p-msg') {
+            if (!ws.roomId || !rooms[ws.roomId]) return;
+            if (roomModes[ws.roomId] !== 'p2p') return;
+            const msg = JSON.stringify({ type: 'relay-p2p-msg', payload: data.payload });
+            rooms[ws.roomId].forEach(client => {
+                if (client !== ws && client.readyState === WebSocket.OPEN) {
+                    try { client.send(msg); } catch (e) { /* ignore */ }
+                }
             });
         }
     });
