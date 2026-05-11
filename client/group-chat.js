@@ -225,9 +225,11 @@ class GroupChatManager {
             const totalChunks = Math.ceil(encData.length / CHUNK_SIZE);
 
             // Send META via relay (no payload key, use msgType)
-            this._relaySend({ msgType: 'MEDIA_META', mime: file.type,
+            this._relaySend({
+                msgType: 'MEDIA_META', mime: file.type,
                 name: file.name.replace(/[^a-zA-Z0-9._-]/g, '_').substring(0, 64),
-                totalChunks, iv: Array.from(iv) });
+                totalChunks, iv: Array.from(iv)
+            });
 
             await new Promise(r => setTimeout(r, 50));
 

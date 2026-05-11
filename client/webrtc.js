@@ -31,13 +31,15 @@ class WebRTCManager {
             // Google STUN servers are tried in parallel for speed.
             iceServers: [
                 // Google STUN — fastest, most reliable
-                { urls: [
-                    'stun:stun.l.google.com:19302',
-                    'stun:stun1.l.google.com:19302',
-                    'stun:stun2.l.google.com:19302',
-                    'stun:stun3.l.google.com:19302',
-                    'stun:stun4.l.google.com:19302'
-                ]},
+                {
+                    urls: [
+                        'stun:stun.l.google.com:19302',
+                        'stun:stun1.l.google.com:19302',
+                        'stun:stun2.l.google.com:19302',
+                        'stun:stun3.l.google.com:19302',
+                        'stun:stun4.l.google.com:19302'
+                    ]
+                },
                 // Cloudflare STUN — low-latency global anycast
                 { urls: 'stun:stun.cloudflare.com:3478' },
                 // Twilio STUN — enterprise-grade
@@ -340,7 +342,6 @@ class WebRTCManager {
             }
         };
 
-        // Answerer receives the DataChannel here (offerer creates it via createDataChannel())
         this.peerConnection.ondatachannel = (event) => {
             this.setupDataChannel(event.channel);
         };
@@ -386,12 +387,9 @@ class WebRTCManager {
     }
 
     createDataChannel() {
-        // Only the OFFERER calls this. The ANSWERER receives the channel
-        // via ondatachannel. Using negotiated:false (the default) is correct:
-        // the browser handles in-band negotiation automatically so both sides
-        // end up with a matched channel without any extra signaling.
+        // Use standard in-band negotiation so the answering peer's ondatachannel event fires.
         this.dataChannel = this.peerConnection.createDataChannel('chat', {
-            ordered: true   // reliable, ordered delivery
+            ordered: true
         });
         this.setupDataChannel(this.dataChannel);
     }
@@ -458,17 +456,6 @@ class WebRTCManager {
             this.ws = null;
         }
     }
-
-    /** Legacy alias used by main.js terminateSession / panic mode */
-    cleanup() {
-        this.destroy();
-    }
-
-    /** Expose RTCPeerConnection so MediaCallManager can add audio tracks */
-    getPeerConnection() {
-        return this.peerConnection;
-    }
 }
 
-// Expose globally
 window.WebRTCManager = WebRTCManager;
