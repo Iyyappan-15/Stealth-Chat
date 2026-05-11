@@ -225,9 +225,11 @@ class GroupChatManager {
             const totalChunks = Math.ceil(encData.length / CHUNK_SIZE);
 
             // Send META via relay (no payload key, use msgType)
-            this._relaySend({ msgType: 'MEDIA_META', mime: file.type,
+            this._relaySend({
+                msgType: 'MEDIA_META', mime: file.type,
                 name: file.name.replace(/[^a-zA-Z0-9._-]/g, '_').substring(0, 64),
-                totalChunks, iv: Array.from(iv) });
+                totalChunks, iv: Array.from(iv)
+            });
 
             await new Promise(r => setTimeout(r, 50));
 
@@ -328,7 +330,8 @@ class GroupChatManager {
         if (this._destroyed) return;
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
             this.reconnectAttempts++;
-            const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 15000);
+            // Start at 500ms, cap at 8s — same tuning as P2P side for consistency
+            const delay = Math.min(500 * Math.pow(1.8, this.reconnectAttempts - 1), 8000);
             console.log(`[Group] WS reconnect in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
             this.reconnectTimer = setTimeout(async () => {
                 if (!this._destroyed) await this.connect(this.roomId, this.myName, this.cryptoManager);
