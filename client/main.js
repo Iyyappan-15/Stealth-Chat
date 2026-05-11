@@ -218,7 +218,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Read user-entered session duration (minutes), clamp 1–480, convert to seconds
         const durationInput = currentMode === 'create' ? sessionDurationCreate : sessionDurationJoin;
-        const chosenMins = Math.min(480, Math.max(1, parseInt(durationInput.value) || 10));
+        const chosenMins = Math.min(480, Math.max(1, parseInt(durationInput.value) || 2));
         sessionTimeLeft = chosenMins * 60;
 
         startSessionTimer();
@@ -337,8 +337,33 @@ document.addEventListener('DOMContentLoaded', () => {
             onP2PMessageReceived,
             onP2PPeerConnected,
             onP2PPeerDisconnected,
-            myName   // pass name to WebRTC manager for signaling
+            myName
         );
+
+        // Called when P2P ICE fails (different networks) — transparent relay fallback
+        webrtcManager.onRelayModeActive = async (isReconnect) => {
+            connectionStatus.innerHTML = '● RELAY ACTIVE | 🔒 AES-256';
+            connectionStatus.classList.remove('disconnected', 'connecting');
+            connectionStatus.classList.add('connected');
+
+            if (!isReconnect) {
+                showSystemAlert(Icons.html('shieldCheck', 'icon-xs') +
+                    ' P2P BLOCKED — RELAY ACTIVE. End-to-end encryption maintained.');
+            }
+
+            // Send KEY_EXCHANGE over relay so encryption is established
+            // (normally happens when DataChannel opens; relay triggers it here)
+            try {
+                const myPublicKey = await cryptoManager.exportPublicKey();
+                webrtcManager.sendMessage(JSON.stringify({
+                    type: 'KEY_EXCHANGE',
+                    key: myPublicKey,
+                    identity: myName
+                }));
+            } catch (e) {
+                console.error('Relay KEY_EXCHANGE error:', e);
+            }
+        };
 
         webrtcManager.connectToSignaling(myRoomId);
         initMediaManagers();
@@ -365,16 +390,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function onP2PPeerDisconnected() {
+        // If relay mode is active, the relay took over — don't show disconnected
+        if (webrtcManager && webrtcManager.relayMode) return;
+
         connectionStatus.innerHTML = '● PEER DISCONNECTED';
         connectionStatus.classList.remove('connected', 'connecting');
         connectionStatus.classList.add('disconnected');
         encryptionStatus.classList.add('hidden');
         showSystemAlert(Icons.html('warning', 'icon-xs') + " PEER CONNECTION LOST — RETRYING...");
-
-        // Vanish the session seal — it is no longer valid without a live peer
         clearSessionSeal();
 
-        // Show connecting state after a moment (WebRTC will attempt re-pairing)
         setTimeout(() => {
             if (!webrtcManager || !webrtcManager.p2pConnected) {
                 setStatusConnecting('AWAITING PEER...');
