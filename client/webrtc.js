@@ -21,34 +21,18 @@ class WebRTCManager {
         this.onPeerDisconnected = onPeerDisconnected;
 
         this.config = {
-            // ── ICE Servers ──────────────────────────────────────────────
-            // Multiple STUN providers for redundancy + faster candidate gathering.
-            // TURN servers provide fallback relay when direct P2P is blocked.
             iceServers: [
-                // Google STUN — fastest, most reliable
                 { urls: [
                     'stun:stun.l.google.com:19302',
                     'stun:stun1.l.google.com:19302',
-                    'stun:stun2.l.google.com:19302',
-                    'stun:stun3.l.google.com:19302',
-                    'stun:stun4.l.google.com:19302'
+                    'stun:stun2.l.google.com:19302'
                 ]},
-                // Cloudflare STUN — low-latency global anycast
                 { urls: 'stun:stun.cloudflare.com:3478' },
-                // Twilio STUN — enterprise-grade
                 { urls: 'stun:global.stun.twilio.com:3478' },
-                // Open Relay TURN (UDP 80) — least-blocked port
                 {
                     urls: [
                         'turn:openrelay.metered.ca:80',
-                        'turn:openrelay.metered.ca:80?transport=tcp'
-                    ],
-                    username: 'openrelayproject',
-                    credential: 'openrelayproject'
-                },
-                // Open Relay TURN (HTTPS 443) — works through most firewalls
-                {
-                    urls: [
+                        'turn:openrelay.metered.ca:80?transport=tcp',
                         'turn:openrelay.metered.ca:443',
                         'turns:openrelay.metered.ca:443?transport=tcp'
                     ],
@@ -56,11 +40,7 @@ class WebRTCManager {
                     credential: 'openrelayproject'
                 }
             ],
-            // Pre-gather 15 candidates before signaling even begins → faster connect
-            iceCandidatePoolSize: 15,
-            // Single multiplexed transport → fewer round-trips, faster setup
-            bundlePolicy: 'max-bundle',
-            rtcpMuxPolicy: 'require'
+            iceCandidatePoolSize: 2
         };
     }
 
@@ -355,12 +335,18 @@ class WebRTCManager {
 
     setupDataChannel(channel) {
         this.dataChannel = channel;
+        // arraybuffer mode avoids Blob-to-ArrayBuffer conversion on receive
+        this.dataChannel.binaryType = 'arraybuffer';
 
         this.dataChannel.onopen = () => {
             console.log('DataChannel OPEN');
             this.p2pConnected = true;
             if (this.onPeerConnected) this.onPeerConnected();
         };
+
+        if (this.dataChannel.readyState === 'open') {
+            this.dataChannel.onopen();
+        }
 
         this.dataChannel.onclose = () => {
             console.log('DataChannel closed');
