@@ -377,11 +377,16 @@ document.addEventListener('DOMContentLoaded', () => {
         showSystemAlert("INITIATING SECURE HANDSHAKE...");
 
         const myPublicKey = await cryptoManager.exportPublicKey();
-        webrtcManager.sendMessage(JSON.stringify({
-            type: 'KEY_EXCHANGE',
-            key: myPublicKey,
-            identity: myName
-        }));
+        const keyMsg = JSON.stringify({ type: 'KEY_EXCHANGE', key: myPublicKey, identity: myName });
+
+        // Retry up to 5x with 100ms gaps in case DataChannel isn't immediately
+        // usable right after the async exportPublicKey() await resolves.
+        let sent = false;
+        for (let i = 0; i < 5 && !sent; i++) {
+            sent = webrtcManager.sendMessage(keyMsg);
+            if (!sent) await new Promise(r => setTimeout(r, 100));
+        }
+        if (!sent) console.error('KEY_EXCHANGE failed to send — DataChannel not open after retries.');
     }
 
     function onP2PPeerDisconnected() {
