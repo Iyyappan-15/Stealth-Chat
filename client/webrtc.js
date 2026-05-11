@@ -23,6 +23,7 @@ class WebRTCManager {
 
         this.config = {
             iceServers: [
+                // ── STUN servers (discover public IP) ──────────────────────
                 { urls: [
                     'stun:stun.l.google.com:19302',
                     'stun:stun1.l.google.com:19302',
@@ -32,6 +33,9 @@ class WebRTCManager {
                 ]},
                 { urls: 'stun:stun.cloudflare.com:3478' },
                 { urls: 'stun:global.stun.twilio.com:3478' },
+                { urls: 'stun:freestun.net:3478' },
+                // ── TURN servers (relay when NAT blocks direct P2P) ─────────
+                // Primary: Open Relay (UDP 80 — least-blocked port)
                 {
                     urls: [
                         'turn:openrelay.metered.ca:80',
@@ -40,6 +44,7 @@ class WebRTCManager {
                     username: 'openrelayproject',
                     credential: 'openrelayproject'
                 },
+                // Secondary: Open Relay (HTTPS 443 — passes through most firewalls)
                 {
                     urls: [
                         'turn:openrelay.metered.ca:443',
@@ -47,9 +52,20 @@ class WebRTCManager {
                     ],
                     username: 'openrelayproject',
                     credential: 'openrelayproject'
+                },
+                // Backup: FreeStuN TURN (independent provider)
+                {
+                    urls: [
+                        'turn:freestun.net:3478',
+                        'turns:freestun.net:5349'
+                    ],
+                    username: 'free',
+                    credential: 'free'
                 }
             ],
-            iceCandidatePoolSize: 10,
+            // Pre-gather 15 candidates before signaling begins → faster connect
+            iceCandidatePoolSize: 15,
+            iceTransportPolicy: 'all',   // try direct first, fall back to TURN
             bundlePolicy: 'max-bundle',
             rtcpMuxPolicy: 'require'
         };
@@ -314,18 +330,19 @@ class WebRTCManager {
                 if (this.disconnectTimer) { clearTimeout(this.disconnectTimer); this.disconnectTimer = null; }
 
             } else if (state === 'disconnected') {
-                // Give ICE a chance to recover before declaring failure
-                console.log('P2P transient disconnect — waiting 4s for ICE recovery...');
+                // Give ICE/TURN enough time to recover across different networks.
+                // TURN relay negotiation can take up to 8-10s on different ISPs.
+                console.log('P2P transient disconnect — waiting 10s for ICE/TURN recovery...');
                 try { this.peerConnection.restartIce(); } catch (e) { /* not always available */ }
 
                 this.disconnectTimer = setTimeout(() => {
                     if (!this.peerConnection) return;
                     const cur = this.peerConnection.connectionState;
                     if (cur === 'disconnected' || cur === 'failed') {
-                        console.log('P2P did not recover — triggering disconnect.');
+                        console.log('P2P did not recover after 10s — triggering disconnect.');
                         this._triggerDisconnect();
                     }
-                }, 4000);
+                }, 10000);
 
             } else if (state === 'failed') {
                 console.log('P2P connection failed.');
