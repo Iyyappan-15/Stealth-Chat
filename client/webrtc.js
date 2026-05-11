@@ -340,6 +340,7 @@ class WebRTCManager {
             }
         };
 
+        // Answerer receives the DataChannel here (offerer creates it via createDataChannel())
         this.peerConnection.ondatachannel = (event) => {
             this.setupDataChannel(event.channel);
         };
@@ -385,12 +386,12 @@ class WebRTCManager {
     }
 
     createDataChannel() {
-        // negotiated:true + id:0 skips the in-band negotiation round-trip,
-        // shaving ~1 RTT off the channel open time.
+        // Only the OFFERER calls this. The ANSWERER receives the channel
+        // via ondatachannel. Using negotiated:false (the default) is correct:
+        // the browser handles in-band negotiation automatically so both sides
+        // end up with a matched channel without any extra signaling.
         this.dataChannel = this.peerConnection.createDataChannel('chat', {
-            ordered: true,
-            negotiated: true,
-            id: 0
+            ordered: true   // reliable, ordered delivery
         });
         this.setupDataChannel(this.dataChannel);
     }
