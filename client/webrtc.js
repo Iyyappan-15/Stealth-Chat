@@ -15,6 +15,11 @@ class WebRTCManager {
         this._destroyed = false;    // only true when user explicitly terminates
         this._pingInterval = null;  // WebSocket heartbeat to keep Render alive
 
+        // ICE candidate batching — flush buffered candidates every 50ms
+        // instead of one signal per candidate (reduces RTTs during gathering)
+        this._iceBatchBuffer = [];
+        this._iceBatchTimer = null;
+
         // Callbacks
         this.onMessageReceived = onMessageReceived;
         this.onPeerConnected = onPeerConnected;
@@ -22,8 +27,8 @@ class WebRTCManager {
 
         this.config = {
             // ── ICE Servers ──────────────────────────────────────────────
-            // Multiple STUN providers for redundancy + faster candidate gathering.
-            // TURN servers provide fallback relay when direct P2P is blocked.
+            // Prioritized: STUN first (fastest), TURN only as last resort.
+            // Google STUN servers are tried in parallel for speed.
             iceServers: [
                 // Google STUN — fastest, most reliable
                 { urls: [
@@ -56,9 +61,10 @@ class WebRTCManager {
                     credential: 'openrelayproject'
                 }
             ],
-            // Pre-gather 15 candidates before signaling even begins → faster connect
-            iceCandidatePoolSize: 15,
-            // Single multiplexed transport → fewer round-trips, faster setup
+            // Pre-gather 8 candidates before the offer is even sent.
+            // Smaller pool = less memory, still enough for most topologies.
+            iceCandidatePoolSize: 8,
+            // Single multiplexed transport → fewer DTLS handshakes, faster setup
             bundlePolicy: 'max-bundle',
             rtcpMuxPolicy: 'require'
         };
@@ -230,7 +236,7 @@ class WebRTCManager {
             try {
                 await this.peerConnection.setRemoteDescription(new RTCSessionDescription(payload.sdp));
 
-                // Flush queued ICE candidates
+                // Flush queued ICE candidates (arrived before remote description was set)
                 while (this.iceCandidateQueue.length > 0) {
                     const c = this.iceCandidateQueue.shift();
                     try { await this.peerConnection.addIceCandidate(new RTCIceCandidate(c)); }
@@ -245,7 +251,21 @@ class WebRTCManager {
             } catch (e) {
                 console.error('Error setting remote description:', e);
             }
+        } else if (payload.iceBatch) {
+            // Batched ICE candidates — process them all in one go to save round-trips
+            for (const ice of payload.iceBatch) {
+                try {
+                    if (this.peerConnection.remoteDescription) {
+                        await this.peerConnection.addIceCandidate(new RTCIceCandidate(ice));
+                    } else {
+                        this.iceCandidateQueue.push(ice);
+                    }
+                } catch (e) {
+                    console.error('ICE batch candidate error:', e);
+                }
+            }
         } else if (payload.ice) {
+            // Legacy single-candidate fallback (for older clients / interop)
             try {
                 if (this.peerConnection.remoteDescription) {
                     await this.peerConnection.addIceCandidate(new RTCIceCandidate(payload.ice));
@@ -269,7 +289,17 @@ class WebRTCManager {
 
         this.peerConnection.onicecandidate = (event) => {
             if (event.candidate) {
-                this.sendSignal({ ice: event.candidate });
+                // Buffer candidates and flush in a batch every 50 ms.
+                // This cuts signaling round-trips from N messages → 1 per batch.
+                this._iceBatchBuffer.push(event.candidate);
+                if (!this._iceBatchTimer) {
+                    this._iceBatchTimer = setTimeout(() => {
+                        this._flushIceBatch();
+                    }, 50);
+                }
+            } else {
+                // null candidate = gathering complete — flush immediately
+                this._flushIceBatch();
             }
         };
 
@@ -283,8 +313,8 @@ class WebRTCManager {
                 if (this.disconnectTimer) { clearTimeout(this.disconnectTimer); this.disconnectTimer = null; }
 
             } else if (state === 'disconnected') {
-                // Transient — give 4 seconds for ICE to recover (was 8s → snappier retry)
-                console.log('P2P transient disconnect — waiting 4s for ICE recovery...');
+                // Transient — give 2.5 seconds for ICE to auto-recover before giving up
+                console.log('P2P transient disconnect — waiting 2.5s for ICE recovery...');
                 try { this.peerConnection.restartIce(); } catch (e) { /* not always available */ }
 
                 this.disconnectTimer = setTimeout(() => {
@@ -294,7 +324,7 @@ class WebRTCManager {
                         console.log('P2P did not recover — disconnecting.');
                         this._triggerDisconnect();
                     }
-                }, 4000);
+                }, 2500);
 
             } else if (state === 'failed') {
                 // Failed = truly unrecoverable ICE failure
@@ -322,9 +352,21 @@ class WebRTCManager {
         if (this.onPeerDisconnected) this.onPeerDisconnected();
     }
 
+    /** Flush buffered ICE candidates as a single batched signal */
+    _flushIceBatch() {
+        if (this._iceBatchTimer) { clearTimeout(this._iceBatchTimer); this._iceBatchTimer = null; }
+        if (this._iceBatchBuffer.length === 0) return;
+        const batch = this._iceBatchBuffer.splice(0);
+        // Send as a single 'ice-batch' signal to reduce round-trips
+        this.sendSignal({ iceBatch: batch });
+    }
+
     /** Tears down only the P2P layer (RTCPeerConnection + DataChannel). WebSocket stays alive. */
     _cleanupPeerConnection() {
         if (this.disconnectTimer) { clearTimeout(this.disconnectTimer); this.disconnectTimer = null; }
+        // Cancel any pending ICE batch flush
+        if (this._iceBatchTimer) { clearTimeout(this._iceBatchTimer); this._iceBatchTimer = null; }
+        this._iceBatchBuffer = [];
         if (this.dataChannel) {
             this.dataChannel.onclose = null;
             this.dataChannel.onerror = null;
@@ -343,18 +385,20 @@ class WebRTCManager {
     }
 
     createDataChannel() {
-        // negotiated:false lets the browser handle channel setup automatically;
-        // maxRetransmits:null + ordered:true = reliable ordered delivery (TCP-like)
+        // negotiated:true + id:0 skips the in-band negotiation round-trip,
+        // shaving ~1 RTT off the channel open time.
         this.dataChannel = this.peerConnection.createDataChannel('chat', {
             ordered: true,
-            // Increase buffer threshold for smoother high-volume transfers
-            // (actual limit is browser-controlled but this hints preference)
+            negotiated: true,
+            id: 0
         });
         this.setupDataChannel(this.dataChannel);
     }
 
     setupDataChannel(channel) {
         this.dataChannel = channel;
+        // arraybuffer mode avoids Blob-to-ArrayBuffer conversion on receive
+        this.dataChannel.binaryType = 'arraybuffer';
 
         this.dataChannel.onopen = () => {
             console.log('DataChannel OPEN');
