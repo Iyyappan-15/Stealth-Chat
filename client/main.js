@@ -218,7 +218,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Read user-entered session duration (minutes), clamp 1–480, convert to seconds
         const durationInput = currentMode === 'create' ? sessionDurationCreate : sessionDurationJoin;
-        const chosenMins = Math.min(480, Math.max(1, parseInt(durationInput.value) || 2));
+        const chosenMins = Math.min(480, Math.max(1, parseInt(durationInput.value) || 10));
         sessionTimeLeft = chosenMins * 60;
 
         startSessionTimer();
