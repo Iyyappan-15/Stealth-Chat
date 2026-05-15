@@ -365,7 +365,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
 
+        // Called when server takes >3 WS reconnects — Render is likely cold-starting
+        webrtcManager.onServerWakingUp = () => {
+            setStatusConnecting('SERVER WAKING UP... (30s)');
+            showSystemAlert(
+                Icons.html('warning', 'icon-xs') +
+                ' Signaling server is starting up — connection will resume automatically.'
+            );
+        };
+
         webrtcManager.connectToSignaling(myRoomId);
+
         initMediaManagers();
     }
 
