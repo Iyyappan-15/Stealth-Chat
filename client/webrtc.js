@@ -18,7 +18,8 @@ class WebRTCManager {
         this._retryTimer          = null;
         this._negotiating         = false;
         this._peerConnectedFired  = false;
-        this._iceRestartAttempts  = 0;
+        this._iceRestartAttempts   = 0;
+        this._connectionTimeoutTimer = null;  // auto-relay fallback after 15s
 
         // ── Relay fallback (used when WebRTC/TURN fails across networks) ──────
         // Set by the caller (main.js) before connectToSignaling() is called.
@@ -113,11 +114,12 @@ class WebRTCManager {
                 // Server keep-alive messages — ignore both variants
                 if (msg.type === 'pong' || msg.type === 'server-ping') return;
 
-                // ── Relay-P2P fallback message ──────────────────────────────────
-                // When WebRTC fails, the server routes encrypted payloads through
-                // relay-p2p-msg. Pass directly to the application message handler.
+                // ── Relay-P2P fallback message ────────────────────────────────
+                // IMPORTANT: Always route to onMessageReceived — do NOT gate on
+                // relayMode. The peer may activate relay before this side does;
+                // gating silently drops KEY_EXCHANGE and breaks encryption.
                 if (msg.type === 'relay-p2p-msg') {
-                    if (this.relayMode && this.onMessageReceived && msg.payload) {
+                    if (this.onMessageReceived && msg.payload) {
                         this.onMessageReceived(msg.payload);
                     }
                     return;
@@ -196,9 +198,12 @@ class WebRTCManager {
 
             case 'peer-joined':
                 // Answerer side: peer entered, wait for their offer
-                console.log('[RTC] Peer joined room — waiting for offer');
+                console.info('[RTC] Peer joined room — waiting for offer');
                 this.relayMode = false;
                 if (!this.peerConnection) this.createPeerConnection();
+                // Start auto-relay timer — if no P2P connection in 15s (TURN failed),
+                // fall back to encrypted WebSocket relay automatically.
+                this._startConnectionTimer();
                 break;
 
             case 'signal':
@@ -348,19 +353,43 @@ class WebRTCManager {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────────
+    // AUTO-RELAY FALLBACK TIMER
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    _startConnectionTimer() {
+        this._clearConnectionTimer();
+        // 15 seconds: enough for TURN to gather candidates and connect;
+        // if still not connected, relay via the already-open WebSocket.
+        this._connectionTimeoutTimer = setTimeout(() => {
+            if (!this.p2pConnected && !this.relayMode && !this._destroyed) {
+                console.info('[RTC] 15s timeout — TURN unreachable, activating relay');
+                this._activateRelayFallback();
+            }
+        }, 15000);
+    }
+
+    _clearConnectionTimer() {
+        if (this._connectionTimeoutTimer) {
+            clearTimeout(this._connectionTimeoutTimer);
+            this._connectionTimeoutTimer = null;
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
     // RELAY FALLBACK
     // ─────────────────────────────────────────────────────────────────────────
 
     _activateRelayFallback() {
         if (this.relayMode || this._destroyed) return;
 
-        const wasConnected = this.p2pConnected;
+        const wasConnected   = this.p2pConnected;
         this.relayMode           = true;
         this.p2pConnected        = false;
         this._peerConnectedFired = false;
+        this._clearConnectionTimer();
 
-        console.log('[RELAY] Activating WebSocket relay fallback');
+        console.info('[RELAY] WebSocket relay fallback activated');
 
         if (this.onRelayModeActive) {
             this.onRelayModeActive(wasConnected);
@@ -382,11 +411,12 @@ class WebRTCManager {
         this.dataChannel.binaryType = 'arraybuffer';
 
         this.dataChannel.onopen = () => {
-            console.log('[DC] Open');
+            console.info('[DC] Open — P2P connection established');
             if (!this._peerConnectedFired) {
                 this._peerConnectedFired = true;
                 this.p2pConnected        = true;
                 this.relayMode           = false;
+                this._clearConnectionTimer();  // cancel relay fallback timer
                 if (this.disconnectTimer) {
                     clearTimeout(this.disconnectTimer);
                     this.disconnectTimer = null;
@@ -422,13 +452,16 @@ class WebRTCManager {
         this.createPeerConnection();
         this.createDataChannel();
 
+        // Start auto-relay timer — if P2P isn't up in 15s, fall back
+        this._startConnectionTimer();
+
         try {
             const offer = await this.peerConnection.createOffer();
             await this.peerConnection.setLocalDescription(offer);
-            console.log('[RTC] Offer created and sent');
+            console.info('[RTC] Offer created and sent');
             this.sendSignal({ sdp: this.peerConnection.localDescription });
         } catch (e) {
-            console.error('[RTC] Offer error:', e);
+            console.info('[RTC] Offer error:', e.message);
         }
     }
 
@@ -546,6 +579,7 @@ class WebRTCManager {
     // ─────────────────────────────────────────────────────────────────────────
 
     _cleanupPeerConnection() {
+        this._clearConnectionTimer();
         if (this.dataChannel) {
             try { this.dataChannel.close(); } catch (e) {}
             this.dataChannel = null;
@@ -569,6 +603,7 @@ class WebRTCManager {
         this.relayMode    = false;
 
         this._stopHeartbeat();
+        this._clearConnectionTimer();
 
         if (this.reconnectTimer)  { clearTimeout(this.reconnectTimer);  this.reconnectTimer  = null; }
         if (this._retryTimer)     { clearTimeout(this._retryTimer);     this._retryTimer     = null; }
