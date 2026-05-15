@@ -8,6 +8,25 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
+// ─── Dead-connection detection ─────────────────────────────────────────────────
+// Uses RFC-6455 binary-level ping/pong (built into the ws library) so we can
+// detect silently dropped connections (mobile background, crash, NAT timeout)
+// and free their room slot before the grace period expires.
+const HEARTBEAT_INTERVAL_MS = 25000;
+
+function heartbeat() { this.isAlive = true; }
+
+const serverHeartbeat = setInterval(() => {
+    wss.clients.forEach(ws => {
+        if (ws.isAlive === false) {
+            console.log(`[HB] Dead connection detected — terminating (room: ${ws.roomId || 'none'})`);
+            return ws.terminate();
+        }
+        ws.isAlive = false;
+        try { ws.ping(); } catch (e) { /* ignore */ }
+    });
+}, HEARTBEAT_INTERVAL_MS);
+
 const PORT = process.env.PORT || 8080;
 
 const corsOptions = {
@@ -58,12 +77,14 @@ app.get('/api/room/:roomId', (req, res) => {
     });
 });
 
-// ─── Keep-alive ping ───────────────────────────────────────────────────────────
-// Sent every 20s — keeps free-tier hosts (Render etc.) alive and detects dead clients faster
+// ─── Application-level keep-alive ─────────────────────────────────────────────
+// Separate from the binary heartbeat above — sends a JSON ping every 20s so the
+// client-side heartbeat interval stays in sync and Render's load-balancer proxy
+// does not close idle WebSocket connections (Render has a 55s idle timeout).
 const SERVER_PING_INTERVAL = setInterval(() => {
     wss.clients.forEach(ws => {
         if (ws.readyState === WebSocket.OPEN) {
-            try { ws.send(JSON.stringify({ type: 'pong' })); } catch (e) { /* ignore */ }
+            try { ws.send(JSON.stringify({ type: 'server-ping' })); } catch (e) { /* ignore */ }
         }
     });
 }, 20000);
@@ -110,13 +131,18 @@ function genPeerId() {
 wss.on('connection', (ws) => {
     console.log('New WebSocket connection at', new Date().toISOString());
 
-    // Close idle connections that never join a room within 10s
+    // Mark connection as alive; update on every pong response
+    ws.isAlive = true;
+    ws.on('pong', heartbeat);
+
+    // Close idle connections that never join a room within 30s
+    // (30s instead of 10s to survive Render cold-start latency)
     const connectionTimeout = setTimeout(() => {
         if (!ws.roomId) {
-            console.log('Connection timeout — no room joined');
+            console.log('Connection timeout — no room joined in 30s');
             ws.close();
         }
-    }, 10000);
+    }, 30000);
 
     ws.on('message', (message) => {
         let data;
@@ -164,7 +190,13 @@ wss.on('connection', (ws) => {
                     }
                     console.log(`Room ${roomId}: restored. Peers: ${rooms[roomId].length}`);
                     if (rooms[roomId].length === 2) {
-                        // Both peers are back — trigger new WebRTC handshake
+                        // Both peers are back — trigger new WebRTC handshake.
+                        // Notify the first peer so it resets its answerer state,
+                        // then signal the second (reconnecting) peer to create the offer.
+                        const firstPeer = rooms[roomId].find(c => c !== ws);
+                        if (firstPeer && firstPeer.readyState === WebSocket.OPEN) {
+                            firstPeer.send(JSON.stringify({ type: 'peer-reconnected' }));
+                        }
                         ws.send(JSON.stringify({ type: 'ready' }));
                     } else {
                         // Only 1 peer reconnected so far — restart grace timer so
@@ -366,6 +398,7 @@ wss.on('connection', (ws) => {
 
 process.on('SIGTERM', () => {
     clearInterval(SERVER_PING_INTERVAL);
+    clearInterval(serverHeartbeat);
     server.close();
 });
 
