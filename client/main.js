@@ -302,6 +302,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (isDecoyActive) startDecoyMessages();
                 else showSystemAlert("DECOY MODE DISABLED");
             });
+
+            // ── Download Chat Log ────────────────────────────────────────────
+            if (downloadChatBtn) {
+                downloadChatBtn.addEventListener('click', () => downloadChatLog());
+            }
         } catch (e) {
             console.error("Security Init Fail:", e);
         }
@@ -1105,6 +1110,114 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function wipeMessages() {
         messagesContainer.innerHTML = '<div class="message system">SESSION CLEARED - SECURITY PROTOCOL</div>';
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // DOWNLOAD CHAT LOG  (100% client-side · zero server · zero database)
+    // ─────────────────────────────────────────────────────────────────────────
+    /**
+     * Collects ONLY the messages currently rendered in the DOM.
+     * No keys, no room ID, no network request — pure Blob download.
+     *
+     * Security notes:
+     *  • Messages are scraped from .message-text / .message-sender-name
+     *    text content so no raw HTML or SVG leaks into the file.
+     *  • The room ID is NOT included — only a masked label is written
+     *    so the file cannot be used to rejoin or trace the session.
+     *  • File is UTF-8 plain text — no binary blobs, no metadata streams.
+     *  • The Blob URL is revoked immediately after the download anchor click.
+     */
+    function downloadChatLog() {
+        const msgNodes = messagesContainer.querySelectorAll('.message');
+
+        if (msgNodes.length === 0) {
+            showSystemAlert(Icons.html('warning', 'icon-xs') + ' NO MESSAGES TO DOWNLOAD');
+            return;
+        }
+
+        const now      = new Date();
+        const dateStr  = now.toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+        const modeStr  = (chatMode || 'UNKNOWN').toUpperCase();
+
+        const lines = [];
+        lines.push('╔══════════════════════════════════════════════════════════╗');
+        lines.push('║          STEALTH CHAT — SECURE SESSION TRANSCRIPT         ║');
+        lines.push('╚══════════════════════════════════════════════════════════╝');
+        lines.push('');
+        lines.push(`  Mode    : ${modeStr}`);
+        lines.push(`  Agent   : ${myName || 'UNKNOWN'}`);
+        lines.push(`  Channel : [REDACTED FOR SECURITY]`);
+        lines.push(`  Exported: ${dateStr}`);
+        lines.push(`  Note    : Contains only messages visible at time of export.`);
+        lines.push(`           Auto-destructed messages are NOT recoverable.`);
+        lines.push('');
+        lines.push('──────────────────────────────────────────────────────────────');
+        lines.push('');
+
+        msgNodes.forEach(node => {
+            // Skip system alerts — they are UI state, not conversation content
+            if (node.classList.contains('system')) return;
+
+            const isMe   = node.classList.contains('me');
+            const isPeer = node.classList.contains('peer');
+
+            // Resolve sender label
+            let sender = 'UNKNOWN';
+            if (isMe) {
+                sender = myName || 'ME';
+            } else if (isPeer) {
+                const nameEl = node.querySelector('.message-sender-name');
+                sender = nameEl ? nameEl.textContent.trim() : 'PEER';
+            }
+
+            // Resolve timestamp if present
+            const timeEl  = node.querySelector('.message-time');
+            const timeStr = timeEl ? `[${timeEl.textContent.trim()}]` : '';
+
+            // Resolve text content — plain text only, strip HTML
+            const textEl = node.querySelector('.message-text');
+            if (textEl) {
+                const msgText = textEl.textContent.trim();
+                lines.push(`${timeStr} ${sender}: ${msgText}`);
+                return;
+            }
+
+            // Media messages — log only the metadata card title (no blob URLs)
+            const fileNameEl = node.querySelector('.secure-file-name');
+            const fileMetaEl = node.querySelector('.secure-file-meta');
+            if (fileNameEl) {
+                const fname  = fileNameEl.textContent.trim();
+                const fmeta  = fileMetaEl ? fileMetaEl.textContent.trim() : '';
+                lines.push(`${timeStr} ${sender}: [MEDIA] ${fname} — ${fmeta}`);
+            }
+        });
+
+        lines.push('');
+        lines.push('──────────────────────────────────────────────────────────────');
+        lines.push('END OF TRANSCRIPT — All messages are end-to-end encrypted.');
+        lines.push('This file was generated locally. Nothing was sent to any server.');
+
+        const content = lines.join('\n');
+
+        // Build a clean filename: stealthchat_YYYYMMDD_HHMMSS.txt
+        const stamp    = now.toISOString().slice(0, 19).replace(/[-:T]/g, '').replace('T', '_');
+        const filename = `stealthchat_${stamp}.txt`;
+
+        // Trigger download via a temporary in-memory Blob — no server involved
+        const blob   = new Blob([content], { type: 'text/plain;charset=utf-8' });
+        const url    = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href        = url;
+        anchor.download    = filename;
+        anchor.style.display = 'none';
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+
+        // Revoke the object URL immediately — no lingering references
+        URL.revokeObjectURL(url);
+
+        showSystemAlert(Icons.html('download', 'icon-xs') + ` CHAT LOG EXPORTED: ${filename}`);
     }
 
     function escapeHtml(str) {
