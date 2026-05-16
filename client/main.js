@@ -47,6 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const stealthTypingToggle = document.getElementById('stealth-typing');
     const noMetadataToggle  = document.getElementById('no-metadata');
     const decoyBtn          = document.getElementById('decoy-btn');
+    const downloadChatBtn   = document.getElementById('download-chat-btn');
 
     // ─── DOM refs for seal popup ────────────────────────────────────────────
     const sealPopup         = document.getElementById('seal-popup');
@@ -1212,6 +1213,72 @@ document.addEventListener('DOMContentLoaded', () => {
         const sender = Math.random() > 0.5 ? 'me' : 'peer';
         appendMessage(`[DECOY] ${randomMsg}`, sender, sender === 'peer' ? 'Peer' : myName);
         setTimeout(() => { if (isDecoyActive) startDecoyMessages(); }, 4000 + Math.random() * 6000);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // DOWNLOAD CHAT
+    // ─────────────────────────────────────────────────────────────────────────
+    
+    if (downloadChatBtn) {
+        downloadChatBtn.addEventListener('click', () => {
+            if (!messagesContainer || messagesContainer.children.length === 0) {
+                showSystemAlert("NO CHAT LOGS AVAILABLE TO DOWNLOAD");
+                return;
+            }
+
+            let chatText = "STEALTH CHAT SECURE LOG\\n";
+            chatText += "==========================\\n\\n";
+            
+            const messages = messagesContainer.querySelectorAll('.message');
+            messages.forEach(msg => {
+                // Skip system alerts
+                if (msg.classList.contains('system')) return;
+                
+                let sender = 'Unknown';
+                if (msg.classList.contains('me')) {
+                    sender = myName || 'Me';
+                } else if (msg.classList.contains('peer')) {
+                    // Try to extract sender name if available
+                    const nameLabel = msg.querySelector('.message-sender-name');
+                    if (nameLabel) {
+                        sender = nameLabel.textContent;
+                    } else {
+                        sender = 'Peer';
+                    }
+                }
+                
+                const textSpan = msg.querySelector('.message-text');
+                const timeSpan = msg.querySelector('.message-time');
+                
+                if (textSpan) {
+                    const time = timeSpan ? `[${timeSpan.textContent}] ` : '';
+                    chatText += `${time}${sender}: ${textSpan.textContent}\\n`;
+                } else if (msg.classList.contains('media-message')) {
+                    // It's a file
+                    const nameDiv = msg.querySelector('.secure-file-name');
+                    const fileName = nameDiv ? nameDiv.textContent : 'Secure File';
+                    chatText += `[FILE] ${sender} shared: ${fileName}\\n`;
+                }
+            });
+            
+            chatText += "\\n==========================\\n";
+            chatText += "END OF LOG";
+
+            const blob = new Blob([chatText], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `stealth-chat-log-${new Date().getTime()}.txt`;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            
+            showSystemAlert("CHAT LOG DOWNLOADED SECURELY");
+        });
     }
 
     dismissAlertBtn.addEventListener('click', () => {
